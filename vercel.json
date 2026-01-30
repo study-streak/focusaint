@@ -4,13 +4,8 @@
   "redirects": [
     {
       "source": "/",
-      "destination": "/",
+      "destination": "/frontend",
       "permanent": false
-    },
-    {
-      "source":"/api/(.*)",
-      "destination":"/backend/:path*",
-      "permanent":true
     }
   ],
   "headers": [
