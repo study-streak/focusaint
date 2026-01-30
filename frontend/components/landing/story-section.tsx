@@ -32,7 +32,7 @@ export default function StorySection() {
             transition={{ duration: 0.6, delay: 0.1 }}
             viewport={{ once: true }}
           >
-            focusaint was born from a simple belief: everyone has the potential to master their learning journey. Founded by a team of educators and developers, we created a platform that transforms how people build and maintain learning habits. We understand that real growth comes through consistent effort, genuine focus, and a supportive community.
+            focusaint was born from a simple belief: everyone has the potential to master their learning journey. Founded by a team of two young minds, we created a platform that transforms how people build and maintain learning habits. We understand that real growth comes through consistent effort, genuine focus, and a supportive community.
           </motion.p>
         </div>
 

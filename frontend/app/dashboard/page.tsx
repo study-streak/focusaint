@@ -63,13 +63,13 @@ export default function DashboardPage() {
   // Don't render loading/error until mounted to avoid hydration mismatch
   if (!mounted) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-purple-50 relative overflow-hidden" />
+      <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 relative overflow-hidden" />
     )
   }
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-purple-50 flex items-center justify-center">
+      <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 2, repeat: Infinity }}
@@ -85,7 +85,7 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-purple-50 flex items-center justify-center px-4">
+      <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center px-4">
         <motion.div
           className="bg-red-100 border-2 border-red-500 rounded-xl p-8 max-w-md text-center"
           initial={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -115,32 +115,37 @@ export default function DashboardPage() {
   }
 
   const statCards = [
-    { icon: Flame, title: "Current Streak", value: stats?.currentStreak || 0, unit: "days", color: "from-orange-600 to-red-600", glow: "from-orange-500/40" },
-    { icon: Target, title: "Sessions This Week", value: stats?.sessionsThisWeek || 0, unit: "sessions", color: "from-blue-600 to-cyan-600", glow: "from-blue-500/40" },
+    { icon: Flame, title: "Current Streak", value: stats?.currentStreak || 0, unit: "days", color: "from-orange-500 via-red-500 to-pink-500", glow: "from-orange-400" },
+    { icon: Target, title: "Sessions This Week", value: stats?.sessionsThisWeek || 0, unit: "sessions", color: "from-blue-500 via-indigo-500 to-purple-500", glow: "from-blue-400" },
     {
       icon: Clock,
       title: "Total Duration",
       value: stats?.totalDuration || 0,
       unit: "hours",
-      color: "from-purple-600 to-pink-600",
-      glow: "from-purple-500/40",
+      color: "from-purple-500 via-pink-500 to-rose-500",
+      glow: "from-purple-400",
     },
-    { icon: TrendingUp, title: "Longest Streak", value: stats?.longestStreak || 0, unit: "days", color: "from-green-600 to-emerald-600", glow: "from-green-500/40" },
+    { icon: TrendingUp, title: "Longest Streak", value: stats?.longestStreak || 0, unit: "days", color: "from-emerald-500 via-teal-500 to-cyan-500", glow: "from-emerald-400" },
   ]
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-purple-50 relative overflow-hidden">
+    <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
-          animate={{ y: [0, -20, 0], x: [0, 10, 0] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-0 left-1/4 w-96 h-96 bg-purple-300/20 rounded-full blur-3xl"
+          animate={{ y: [0, -30, 0], x: [0, 20, 0] }}
+          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-purple-300/30 to-pink-300/30 rounded-full blur-3xl"
         />
         <motion.div
-          animate={{ y: [0, 20, 0], x: [0, -10, 0] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-          className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-300/20 rounded-full blur-3xl"
+          animate={{ y: [0, 30, 0], x: [0, -20, 0] }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-gradient-to-br from-blue-300/30 to-indigo-300/30 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{ y: [0, -15, 0], x: [0, 15, 0], rotate: [0, 180, 360] }}
+          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+          className="absolute top-1/2 left-1/2 w-[400px] h-[400px] bg-gradient-to-br from-cyan-300/20 to-teal-300/20 rounded-full blur-3xl"
         />
       </div>
 
@@ -154,10 +159,10 @@ export default function DashboardPage() {
           transition={{ duration: 0.6 }}
           className="mb-8"
         >
-          <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2">
+          <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
             Welcome back, {user?.name?.split(" ")[0]}! 👋
           </h2>
-          <p className="text-gray-600 text-lg">Let's build your perfect focus routine</p>
+          <p className="text-gray-700 text-lg font-medium">Let's build your perfect focus routine ✨</p>
         </motion.div>
 
         {/* Stats Grid */}

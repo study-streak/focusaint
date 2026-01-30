@@ -11,21 +11,21 @@ export default function StreakCard({ stats }: { stats: any }) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -5 }}
+      whileHover={{ y: -8, scale: 1.02 }}
       transition={{ duration: 0.3 }}
     >
-      <Card className="border-3 border-orange-400 bg-gradient-to-br from-orange-50 to-red-50 shadow-xl overflow-hidden group relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-orange-300/0 via-orange-200/10 to-red-300/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <Card className="border-0 bg-gradient-to-br from-orange-100 via-red-50 to-pink-100 shadow-2xl overflow-hidden group relative ring-2 ring-orange-200">
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-400/0 via-red-400/20 to-pink-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl text-orange-700 font-bold">Current Streak</CardTitle>
+            <CardTitle className="text-2xl text-orange-800 font-bold">Current Streak</CardTitle>
             <motion.div
-              animate={{ rotate: [0, 10, -10, 0] }}
-              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-              className="p-3 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg"
+              animate={{ rotate: [0, 15, -15, 0] }}
+              transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 2 }}
+              className="p-3 bg-gradient-to-br from-orange-500 via-red-500 to-pink-500 rounded-xl shadow-xl"
             >
-              <Flame size={28} className="text-white" />
+              <Flame size={30} className="text-white drop-shadow-lg" />
             </motion.div>
           </div>
         </CardHeader>
@@ -37,12 +37,12 @@ export default function StreakCard({ stats }: { stats: any }) {
             transition={{ delay: 0.2 }}
             className="relative"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-orange-400 to-red-500 rounded-full blur-2xl opacity-20" />
+            <div className="absolute inset-0 bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 rounded-full blur-3xl opacity-30" />
             <div className="relative flex items-center justify-center">
               <motion.div
-                animate={{ scale: [1, 1.05, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="text-8xl font-black bg-gradient-to-r from-orange-500 via-red-500 to-orange-600 bg-clip-text text-transparent"
+                animate={{ scale: [1, 1.08, 1] }}
+                transition={{ duration: 2.5, repeat: Infinity }}
+                className="text-8xl font-black bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 bg-clip-text text-transparent drop-shadow-2xl"
               >
                 {currentStreak}
               </motion.div>

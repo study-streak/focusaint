@@ -5,17 +5,17 @@ import { Github, Linkedin, Twitter } from "lucide-react"
 
 const team = [
   {
-    name: "Sarah Chen",
+    name: "Akash Bachalakuri",
     role: "Co-Founder & CEO",
-    bio: "Education technologist passionate about habit formation and lifelong learning.",
-    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop",
+    bio: "Entreprenur passionate about building impactful solution.",
+    image: "akash.png",
     social: { github: "#", linkedin: "#", twitter: "#" },
   },
   {
-    name: "Alex Rivera",
+    name: "Kanak Goel",
     role: "Co-Founder & CTO",
     bio: "Full-stack developer dedicated to creating intuitive and powerful learning tools.",
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop",
+    image: "/kanak.png",
     social: { github: "#", linkedin: "#", twitter: "#" },
   },
 ]

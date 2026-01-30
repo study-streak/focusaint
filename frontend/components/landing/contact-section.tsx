@@ -53,9 +53,9 @@ export default function ContactSection() {
             viewport={{ once: true }}
           >
             {[
-              { icon: Mail, title: "Email", value: "hello@focusaint.com" },
-              { icon: Phone, title: "Phone", value: "+1 (555) 123-4567" },
-              { icon: MapPin, title: "Location", value: "San Francisco, CA" },
+              { icon: Mail, title: "Email", value: "admin@focusaint.com" },
+              { icon: Phone, title: "Phone", value: "+91 8448501684" },
+              { icon: MapPin, title: "Location", value: "India" },
             ].map((contact, index) => {
               const Icon = contact.icon
               return (

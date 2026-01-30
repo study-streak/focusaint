@@ -3,10 +3,10 @@
 import { motion } from "framer-motion"
 
 const timelineEvents = [
-  { year: 2022, title: "The Beginning", description: "Founded focusaint with a vision to revolutionize learning habits" },
-  { year: 2023, title: "Beta Launch", description: "Launched beta version with 100+ early adopters" },
-  { year: 2024, title: "Community Growth", description: "Reached 10,000+ active learners building their habits" },
-  { year: 2025, title: "Global Expansion", description: "Expanding to 50+ countries with multi-language support" },
+  { year: "DEC 2025", title: "The Beginning", description: "Founded focusaint with a vision to revolutionize learning habits" },
+  { year: "FEB 2026", title: "Beta Launch", description: "Launched beta version with 100+ early adopters" },
+  { year: "MAR 2026", title: "Community Growth", description: "Reached 10,000+ active learners building their habits" },
+  { year: "JUNE 2026", title: "Global Expansion", description: "Expanding to 50+ countries with multi-language support" },
 ]
 
 export default function TimelineSection() {

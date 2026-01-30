@@ -57,7 +57,7 @@ export const sendOTP = async (email, otp, name = "") => {
         address: process.env.EMAIL_USER,
       },
       to: email,
-      subject: `${otp} is your focusaint verification code`,
+      subject: `Account verification code`,
       html: getOTPEmailTemplate(name, otp),
       text: `Hello ${name || "there"}!\n\nYour focusaint verification code is: ${otp}\n\nThis code will expire in 10 minutes.\n\nIf you didn't request this code, please ignore this email.\n\nBest regards,\nThe focusaint Team`,
     }

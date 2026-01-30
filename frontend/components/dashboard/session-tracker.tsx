@@ -49,29 +49,34 @@ export default function SessionTracker({ user }: { user: any }) {
   }
 
   const modes = [
-    { value: "habit", label: "Habit Mode", color: "from-blue-500 to-cyan-500" },
-    { value: "deep", label: "Deep Mode", color: "from-purple-500 to-pink-500" },
-    { value: "quiz", label: "Quiz Mode", color: "from-green-500 to-emerald-500" },
-    { value: "recall", label: "Recall Mode", color: "from-amber-500 to-orange-500" },
+    { value: "habit", label: "Habit Mode", color: "from-blue-500 via-indigo-500 to-purple-500" },
+    { value: "deep", label: "Deep Mode", color: "from-purple-500 via-pink-500 to-rose-500" },
+    { value: "quiz", label: "Quiz Mode", color: "from-emerald-500 via-teal-500 to-cyan-500" },
+    { value: "recall", label: "Recall Mode", color: "from-amber-500 via-orange-500 to-red-500" },
   ]
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ scale: 1.01 }}
       transition={{ duration: 0.5 }}
     >
-      <Card className="border-3 border-purple-400 bg-gradient-to-br from-purple-50 to-pink-50 shadow-xl overflow-hidden group">
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-300/0 via-purple-200/10 to-pink-300/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <Card className="border-0 bg-gradient-to-br from-purple-100 via-pink-50 to-rose-100 shadow-2xl overflow-hidden group relative ring-2 ring-purple-200">
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-400/0 via-pink-400/20 to-rose-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
         
         <CardHeader className="relative z-10">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-2xl text-purple-700 font-bold">Log Today's Session</CardTitle>
-              <CardDescription className="text-gray-600 mt-2 font-semibold">Track your daily focus time and build your streak</CardDescription>
+              <CardTitle className="text-2xl text-purple-800 font-bold">Log Today's Session</CardTitle>
+              <CardDescription className="text-gray-700 mt-2 font-semibold">Track your daily focus time and build your streak 🎯</CardDescription>
             </div>
-            <motion.div className="p-3 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg shadow-lg">
-              <Zap size={28} className="text-white" />
+            <motion.div 
+              animate={{ rotate: [0, -10, 10, 0] }}
+              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+              className="p-3 bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 rounded-xl shadow-xl"
+            >
+              <Zap size={30} className="text-white drop-shadow-lg" />
             </motion.div>
           </div>
         </CardHeader>
