@@ -20,7 +20,6 @@ const userSchema = new mongoose.Schema(
     },
     learningGoal: {
       type: String,
-      enum: ["student", "exam_aspirant", "coding_learner", "casual_learner"],
       default: "casual_learner",
     },
     preferredStudyTime: {
