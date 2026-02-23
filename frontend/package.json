@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "postinstall": "node -e \"const fs = require('fs'); const path = require('path'); const src = path.join(__dirname, 'node_modules/pdfjs-dist/build/pdf.worker.min.mjs'); const dest = path.join(__dirname, 'public/pdf.worker.min.mjs'); if (fs.existsSync(src)) { fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.copyFileSync(src, dest); console.log('Copied PDF worker'); } else { console.log('PDF worker source not found'); }\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -44,10 +45,13 @@
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
     "framer-motion": "^12.26.2",
+    "html2canvas": "^1.4.1",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "next": "^16.1.6",
     "next-themes": "^0.4.6",
+    "pdfjs": "^2.5.4",
+    "pdfjs-dist": "^5.4.624",
     "react": "19.2.0",
     "react-day-picker": "9.8.0",
     "react-dom": "19.2.0",
@@ -57,6 +61,7 @@
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
+    "three": "^0.183.0",
     "vaul": "^1.1.2",
     "zod": "3.25.76"
   },

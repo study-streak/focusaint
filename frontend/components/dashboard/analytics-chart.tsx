@@ -6,15 +6,20 @@ import { motion } from "framer-motion"
 import { TrendingUp } from "lucide-react"
 
 export default function AnalyticsChart({ stats }: { stats: any }) {
-  const data = stats?.weeklyData || [
-    { day: "Sun", sessions: 2 },
-    { day: "Mon", sessions: 2 },
-    { day: "Tue", sessions: 3 },
-    { day: "Wed", sessions: 2 },
-    { day: "Thu", sessions: 4 },
-    { day: "Fri", sessions: 3 },
-    { day: "Sat", sessions: 1 },
+  const fallbackData = [
+    { day: "Sun", sessions: 0 },
+    { day: "Mon", sessions: 0 },
+    { day: "Tue", sessions: 0 },
+    { day: "Wed", sessions: 0 },
+    { day: "Thu", sessions: 0 },
+    { day: "Fri", sessions: 0 },
+    { day: "Sat", sessions: 0 },
   ]
+
+  const data = (stats?.weeklyData?.length ? stats.weeklyData : fallbackData).map((entry: any) => ({
+    day: entry.day,
+    sessions: Number(entry.sessions) || 0,
+  }))
 
   const colors = ["#ec4899", "#a855f7", "#3b82f6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444"]
   const maxValue = Math.max(...data.map((d: any) => d.sessions), 1)
@@ -25,31 +30,32 @@ export default function AnalyticsChart({ stats }: { stats: any }) {
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ scale: 1.01 }}
       transition={{ duration: 0.5 }}
+      className="h-full"
     >
-      <Card className="border-0 bg-gradient-to-br from-blue-100 via-indigo-50 to-purple-100 shadow-2xl overflow-hidden group relative ring-2 ring-blue-200">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-400/0 via-indigo-400/20 to-purple-400/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <Card className="h-full border border-white/15 bg-white/6 backdrop-blur-xl shadow-[0_14px_45px_rgba(0,0,0,0.45)] overflow-hidden group relative rounded-2xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/15 via-cyan-500/10 to-violet-500/10 opacity-80" />
         
-        <CardHeader className="relative z-10">
+        <CardHeader className="relative z-10 pb-1 pt-4">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-2xl text-indigo-800 font-bold">Weekly Activity</CardTitle>
-              <p className="text-sm text-gray-700 mt-1 font-medium">Your focus sessions this week</p>
+              <CardTitle className="text-lg text-slate-100 font-bold">Weekly Activity</CardTitle>
+              <p className="text-xs text-slate-300 mt-1 font-medium">Your focus sessions this week</p>
             </div>
             <motion.div
               animate={{ y: [0, -8, 0] }}
               transition={{ duration: 2.5, repeat: Infinity }}
-              className="p-3 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 rounded-xl shadow-xl"
+              className="p-2 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 rounded-lg shadow-lg"
             >
-              <TrendingUp size={30} className="text-white drop-shadow-lg" />
+              <TrendingUp size={22} className="text-white drop-shadow-lg" />
             </motion.div>
           </div>
         </CardHeader>
 
-        <CardContent className="relative z-10">
-          <ResponsiveContainer width="100%" height={350}>
+        <CardContent className="relative z-10 pt-0 pb-3">
+          <ResponsiveContainer width="100%" height={230}>
             <BarChart
               data={data}
-              margin={{ top: 20, right: 30, left: 0, bottom: 0 }}
+              margin={{ top: 12, right: 8, left: -12, bottom: 0 }}
             >
               <defs>
                 {colors.map((color, i) => (
@@ -63,29 +69,33 @@ export default function AnalyticsChart({ stats }: { stats: any }) {
               <XAxis
                 dataKey="day"
                 stroke="rgb(107, 114, 128)"
-                style={{ fontSize: "14px", fontWeight: "600" }}
+                style={{ fontSize: "12px", fontWeight: "600", fill: "#cbd5e1" }}
+                tickLine={false}
+                axisLine={false}
               />
               <YAxis
-                stroke="rgb(107, 114, 128)"
-                style={{ fontSize: "14px", fontWeight: "600" }}
+                stroke="rgba(148, 163, 184, 0.6)"
+                style={{ fontSize: "12px", fontWeight: "600", fill: "#94a3b8" }}
                 domain={[0, Math.max(maxValue, 5)]}
+                tickLine={false}
+                axisLine={false}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "white",
-                  border: "3px solid rgb(96, 165, 250)",
+                  backgroundColor: "rgba(15, 23, 42, 0.95)",
+                  border: "1px solid rgba(148, 163, 184, 0.35)",
                   borderRadius: "8px",
-                  boxShadow: "0 10px 25px rgba(59, 130, 246, 0.3)",
+                  boxShadow: "0 10px 25px rgba(0, 0, 0, 0.4)",
                   fontWeight: "600",
                 }}
-                labelStyle={{ color: "rgb(37, 99, 235)" }}
-                itemStyle={{ color: "rgb(59, 130, 246)" }}
-                cursor={{ fill: "rgba(59, 130, 246, 0.1)" }}
+                labelStyle={{ color: "#e2e8f0" }}
+                itemStyle={{ color: "#93c5fd" }}
+                cursor={{ fill: "rgba(148, 163, 184, 0.12)" }}
               />
               <Bar
                 dataKey="sessions"
                 fill="var(--color-accent)"
-                radius={[12, 12, 0, 0]}
+                radius={[8, 8, 0, 0]}
                 isAnimationActive={true}
               >
                 {data.map((_entry: any, index: any) => (
@@ -95,25 +105,18 @@ export default function AnalyticsChart({ stats }: { stats: any }) {
             </BarChart>
           </ResponsiveContainer>
 
-          {/* Stats Footer */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
-            className="mt-6 pt-6 border-t-2 border-indigo-200 flex items-center justify-between"
+            className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-xs font-semibold text-slate-300"
           >
-            <div>
-              <p className="text-sm font-semibold text-gray-700">Total Sessions This Week</p>
-              <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                {data.reduce((sum: number, d: any) => sum + d.sessions, 0)}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-semibold text-gray-700">Average Per Day</p>
-              <p className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                {(data.reduce((sum: number, d: any) => sum + d.sessions, 0) / data.length).toFixed(1)}
-              </p>
-            </div>
+            <p>
+              Total: <span className="text-cyan-300">{data.reduce((sum: number, d: any) => sum + d.sessions, 0)}</span>
+            </p>
+            <p>
+              Avg/day: <span className="text-violet-300">{(data.reduce((sum: number, d: any) => sum + d.sessions, 0) / data.length).toFixed(1)}</span>
+            </p>
           </motion.div>
         </CardContent>
       </Card>

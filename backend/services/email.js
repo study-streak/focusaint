@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer"
 import { getOTPEmailTemplate } from "../templates/otpEmail.js"
+import { param } from "framer-motion/client"
 
 // Create transporter - Configure with your email service
 const createTransporter = () => {

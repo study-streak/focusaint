@@ -4,6 +4,7 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { ArrowRight } from "lucide-react"
+import {Scene3D}  from "@/components/ui/Scene3D"
 
 export default function HeroSection() {
   const router = useRouter()
@@ -44,6 +45,7 @@ export default function HeroSection() {
         />
       ))}
 
+      <Scene3D/>
       {/* Content */}
       <div className="max-w-4xl mx-auto text-center z-10">
         <motion.h1

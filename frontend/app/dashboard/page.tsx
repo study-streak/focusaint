@@ -3,9 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import DashboardHeader from "@/components/dashboard/dashboard-header"
-import StreakCard from "@/components/dashboard/streak-card"
 import SessionTracker from "@/components/dashboard/session-tracker"
 import AnalyticsChart from "@/components/dashboard/analytics-chart"
 import { Flame, Clock, Target, TrendingUp, Zap } from "lucide-react"
@@ -37,7 +35,11 @@ export default function DashboardPage() {
           headers: { Authorization: `Bearer ${token}` },
         })
 
-        if (!userRes.ok) throw new Error("Failed to fetch user data")
+        if (!userRes.ok) {
+          throw new Error("Failed to fetch user data")
+          
+        }
+
 
         const userData = await userRes.json()
         setUser(userData.user || userData)
@@ -52,6 +54,8 @@ export default function DashboardPage() {
         setStats(statsData)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load dashboard")
+        localStorage.clear()
+        router.push('/')
       } finally {
         setLoading(false)
       }
@@ -129,45 +133,34 @@ export default function DashboardPage() {
   ]
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 relative overflow-hidden">
+    <main className="min-h-screen bg-[#070b14] relative overflow-x-hidden text-white">
       {/* Animated Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
           animate={{ y: [0, -30, 0], x: [0, 20, 0] }}
           transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-gradient-to-br from-purple-300/30 to-pink-300/30 rounded-full blur-3xl"
+          className="absolute -top-32 left-1/4 w-[520px] h-[520px] bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 rounded-full blur-3xl"
         />
         <motion.div
           animate={{ y: [0, 30, 0], x: [0, -20, 0] }}
           transition={{ duration: 15, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-          className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-gradient-to-br from-blue-300/30 to-indigo-300/30 rounded-full blur-3xl"
+          className="absolute -bottom-24 right-1/4 w-[560px] h-[560px] bg-gradient-to-br from-cyan-500/15 to-indigo-500/15 rounded-full blur-3xl"
         />
         <motion.div
           animate={{ y: [0, -15, 0], x: [0, 15, 0], rotate: [0, 180, 360] }}
           transition={{ duration: 20, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-          className="absolute top-1/2 left-1/2 w-[400px] h-[400px] bg-gradient-to-br from-cyan-300/20 to-teal-300/20 rounded-full blur-3xl"
+          className="absolute top-1/2 left-1/2 w-[430px] h-[430px] bg-gradient-to-br from-blue-500/10 to-teal-500/10 rounded-full blur-3xl"
         />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.14)_1px,transparent_0)] bg-[size:24px_24px] opacity-25" />
       </div>
 
-      <DashboardHeader user={user} />
+      <DashboardHeader user={user} stats={stats} />
 
-      <div className="max-w-7xl mx-auto p-6 space-y-8 relative z-10">
-        {/* Welcome Section */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="mb-8"
-        >
-          <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
-            Welcome back, {user?.name?.split(" ")[0]}! 👋
-          </h2>
-          <p className="text-gray-700 text-lg font-medium">Let's build your perfect focus routine ✨</p>
-        </motion.div>
+      <div className="max-w-[1500px] mx-auto px-3 md:px-6 py-3 md:py-4 space-y-4 relative z-10 pb-6">
 
         {/* Stats Grid */}
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
@@ -178,22 +171,22 @@ export default function DashboardPage() {
               <motion.div
                 key={index}
                 variants={itemVariants}
-                whileHover={{ y: -8, transition: { duration: 0.2 } }}
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
                 className="group"
               >
-                <div className={`bg-gradient-to-br ${stat.color} p-0.5 rounded-2xl shadow-2xl transition-all duration-300`}>
-                  <div className="bg-white rounded-2xl p-6 h-full relative overflow-hidden">
+                <div className="rounded-xl border border-white/15 bg-white/5 backdrop-blur-xl shadow-[0_10px_40px_rgba(0,0,0,0.35)] transition-all duration-300 h-full min-h-[112px]">
+                  <div className="rounded-xl p-4 h-full relative overflow-hidden">
                     {/* Glow Background */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
+                    <div className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-10 group-hover:opacity-20 transition-opacity duration-300`} />
                     
-                    <div className="relative z-10 flex items-center justify-between mb-4">
-                      <h3 className="text-gray-700 font-bold text-sm leading-tight">{stat.title}</h3>
+                    <div className="relative z-10 flex items-center justify-between mb-2">
+                      <h3 className="text-slate-200 font-semibold text-xs md:text-sm leading-tight">{stat.title}</h3>
                       <motion.div
                         whileHover={{ scale: 1.15, rotate: 15 }}
                         whileTap={{ scale: 0.9 }}
-                        className={`p-3 bg-gradient-to-br ${stat.color} rounded-lg shadow-lg`}
+                        className={`p-1.5 bg-gradient-to-br ${stat.color} rounded-md shadow-[0_8px_20px_rgba(0,0,0,0.35)]`}
                       >
-                        <Icon size={22} className="text-white" />
+                        <Icon size={16} className="text-white" />
                       </motion.div>
                     </div>
                     <div className="relative z-10 flex items-baseline gap-2">
@@ -201,11 +194,11 @@ export default function DashboardPage() {
                         initial={{ opacity: 0, scale: 0.5 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: index * 0.1 + 0.3, duration: 0.5 }}
-                        className={`text-4xl font-bold bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}
+                        className={`text-2xl font-bold bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}
                       >
                         {stat.value}
                       </motion.span>
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">{stat.unit}</span>
+                      <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider">{stat.unit}</span>
                     </div>
                   </div>
                 </div>
@@ -214,29 +207,23 @@ export default function DashboardPage() {
           })}
         </motion.div>
 
-        {/* Main Content Grid */}
         <motion.div
-          className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+          className="grid grid-cols-1 xl:grid-cols-5 gap-4"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
-          {/* Streak Card - Larger */}
-          <motion.div variants={itemVariants} className="lg:col-span-1">
-            <StreakCard stats={stats} />
-          </motion.div>
-
-          {/* Analytics Chart - Full Width on Right */}
-          <motion.div variants={itemVariants} className="lg:col-span-2">
+          <motion.div variants={itemVariants} className="xl:col-span-3">
             <AnalyticsChart stats={stats} />
           </motion.div>
-        </motion.div>
 
-        {/* Session Tracker */}
-        <motion.div variants={itemVariants} initial="hidden" animate="visible">
-          <SessionTracker user={user} />
+          <motion.div variants={itemVariants} className="xl:col-span-2">
+            <SessionTracker user={user} />
+          </motion.div>
         </motion.div>
       </div>
+
+      
     </main>
   )
 }

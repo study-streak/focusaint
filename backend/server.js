@@ -2,14 +2,25 @@ import express from "express"
 import mongoose from "mongoose"
 import dotenv from "dotenv"
 import cors from "cors"
+import path from "path"
+import fs from "fs"
+import { fileURLToPath } from "url"
 import authRoutes from "./routes/auth.js"
 import userRoutes from "./routes/user.js"
 import habitRoutes from "./routes/habit.js"
+import planRoutes from "./routes/plan.js"
 import { errorHandler } from "./middleware/errorHandler.js"
 
 dotenv.config()
 
 const app = express()
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const uploadsDir = path.join(__dirname, "uploads")
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true })
+}
 
 // Middleware
 app.use(
@@ -19,6 +30,7 @@ app.use(
   })
 )
 app.use(express.json())
+app.use("/uploads", express.static(uploadsDir))
 
 // MongoDB Connection
 mongoose
@@ -30,6 +42,7 @@ mongoose
 app.use("/api/auth", authRoutes)
 app.use("/api/user", userRoutes)
 app.use("/api/habit", habitRoutes)
+app.use("/api/plan", planRoutes)
 
 // Health check
 app.get("/api/health", (req, res) => {
