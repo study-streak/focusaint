@@ -18,7 +18,7 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true })
 }
 
-const storage = multer.diskStorage({
+const storage = multer.memoryStorage({
   destination: (_req, _file, cb) => {
     cb(null, uploadsDir)
   },
@@ -36,7 +36,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: {
-    fileSize: 20 * 1024 * 1024,
+    fileSize: 4 * 1024 * 1024,
   },
 })
 
