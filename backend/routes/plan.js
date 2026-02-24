@@ -41,6 +41,93 @@ const upload = multer({
   },
 })
 
+function decodeXmlEntities(value = "") {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+}
+
+function getPlaylistId(input = "") {
+  const trimmed = String(input).trim()
+  if (!trimmed) return null
+
+  if (/^PL[\w-]+$/i.test(trimmed)) {
+    return trimmed
+  }
+
+  try {
+    const url = new URL(trimmed)
+    const list = url.searchParams.get("list")
+    if (list) return list
+  } catch (_error) {
+    return null
+  }
+
+  return null
+}
+
+function parsePlaylistFeed(xml = "") {
+  const feedTitleMatch = xml.match(/<title>([\s\S]*?)<\/title>/)
+  const feedTitle = feedTitleMatch ? decodeXmlEntities(feedTitleMatch[1].trim()) : "YouTube Playlist"
+
+  const entryRegex = /<entry>([\s\S]*?)<\/entry>/g
+  const videos = []
+  let match
+
+  while ((match = entryRegex.exec(xml)) !== null) {
+    const entry = match[1]
+    const videoIdMatch = entry.match(/<yt:videoId>([\s\S]*?)<\/yt:videoId>/)
+    const titleMatch = entry.match(/<title>([\s\S]*?)<\/title>/)
+    const publishedMatch = entry.match(/<published>([\s\S]*?)<\/published>/)
+
+    if (!videoIdMatch || !titleMatch) continue
+
+    const videoId = videoIdMatch[1].trim()
+    const title = decodeXmlEntities(titleMatch[1].trim())
+    const publishedAt = publishedMatch ? publishedMatch[1].trim() : null
+
+    videos.push({
+      videoId,
+      title,
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      publishedAt,
+    })
+  }
+
+  return {
+    feedTitle,
+    videos,
+  }
+}
+
+function buildStudyRoutine(videos = [], startDate, days) {
+  const routine = []
+  const parsedStartDate = new Date(startDate)
+
+  for (let dayIndex = 0; dayIndex < days; dayIndex += 1) {
+    const date = new Date(parsedStartDate)
+    date.setDate(parsedStartDate.getDate() + dayIndex)
+    routine.push({
+      day: dayIndex + 1,
+      date: date.toISOString().split("T")[0],
+      videos: [],
+    })
+  }
+
+  videos.forEach((video, index) => {
+    const dayIndex = index % days
+    routine[dayIndex].videos.push(video)
+  })
+
+  return routine.map((item) => ({
+    ...item,
+    taskCount: item.videos.length,
+  }))
+}
+
 /**
  * CREATE: Add a new task to monthly/daily plan
  * POST /plan/task
@@ -340,6 +427,85 @@ router.post("/bulk", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("Bulk create error:", error)
     res.status(500).json({ error: "Failed to create bulk tasks" })
+  }
+})
+
+/**
+ * YOUTUBE ROUTINE: Build study routine by splitting playlist videos into days
+ * POST /plan/youtube-playlist/routine
+ * Body: { playlistUrlOrId, days, startDate?, createTasks?, durationPerVideo? }
+ */
+router.post("/youtube-playlist/routine", authenticateToken, async (req, res) => {
+  try {
+    const { playlistUrlOrId, days, startDate, createTasks, durationPerVideo } = req.body
+
+    const playlistId = getPlaylistId(playlistUrlOrId)
+    const parsedDays = Number(days)
+    const parsedDuration = Number(durationPerVideo) || 25
+    const start = startDate || new Date().toISOString().split("T")[0]
+
+    if (!playlistId) {
+      return res.status(400).json({ error: "Valid YouTube playlist URL or playlist ID is required" })
+    }
+
+    if (!parsedDays || parsedDays < 1 || parsedDays > 365) {
+      return res.status(400).json({ error: "days must be between 1 and 365" })
+    }
+
+    if (Number.isNaN(new Date(start).getTime())) {
+      return res.status(400).json({ error: "startDate must be a valid date (YYYY-MM-DD)" })
+    }
+
+    const feedUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`
+    const response = await fetch(feedUrl)
+
+    if (!response.ok) {
+      return res.status(400).json({ error: "Unable to fetch playlist feed. Check if playlist ID is valid and public." })
+    }
+
+    const xml = await response.text()
+    const { feedTitle, videos } = parsePlaylistFeed(xml)
+
+    if (videos.length === 0) {
+      return res.status(404).json({ error: "No videos found. The playlist may be empty or private." })
+    }
+
+    const studyPlan = buildStudyRoutine(videos, start, parsedDays)
+    let createdTasks = []
+
+    if (Boolean(createTasks)) {
+      const tasksToCreate = studyPlan.flatMap((dayPlan) =>
+        dayPlan.videos.map((video) => ({
+          userId: req.user.userId,
+          title: `Watch: ${video.title}`,
+          description: video.url,
+          duration: parsedDuration,
+          category: "reading",
+          assignedDate: dayPlan.date,
+          monthYear: dayPlan.date.slice(0, 7),
+          completed: false,
+        }))
+      )
+
+      createdTasks = await HabitTask.insertMany(tasksToCreate)
+    }
+
+    res.json({
+      message: createTasks ? "Routine generated and tasks created" : "Routine generated",
+      playlist: {
+        id: playlistId,
+        title: feedTitle,
+        totalVideos: videos.length,
+      },
+      days: parsedDays,
+      startDate: start,
+      durationPerVideo: parsedDuration,
+      studyPlan,
+      createdTasksCount: createdTasks.length,
+    })
+  } catch (error) {
+    console.error("YouTube routine error:", error)
+    res.status(500).json({ error: "Failed to generate playlist routine" })
   }
 })
 

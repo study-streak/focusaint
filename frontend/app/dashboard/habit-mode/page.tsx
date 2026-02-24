@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { AttachmentUpload } from "@/components/attachment-upload"
-import { ChevronLeft, ChevronRight, Plus, Trash2, CheckCircle2, Circle, Flame, TrendingUp, Link as LinkIcon, FileText, Calendar, Eye, X } from "lucide-react"
+import { APIClient } from "@/lib/api-client"
+import { ChevronLeft, ChevronRight, Plus, Trash2, CheckCircle2, Circle, Flame, TrendingUp, Link as LinkIcon, FileText, Calendar, X } from "lucide-react"
 
 type Task = {
   _id: string
@@ -35,6 +36,18 @@ type Task = {
 }
 
 type ViewType = "daily" | "monthly"
+
+type YoutubeRoutineDay = {
+  day: number
+  date: string
+  taskCount: number
+  videos: Array<{
+    videoId: string
+    title: string
+    url: string
+    publishedAt: string | null
+  }>
+}
 
 export default function HabitModePlannerPage() {
   const router = useRouter()
@@ -66,6 +79,15 @@ export default function HabitModePlannerPage() {
   const [proctoredMode, setProctoredMode] = useState(false)
   const [showDistributionModal, setShowDistributionModal] = useState(false)
   const [distributionDays, setDistributionDays] = useState<Array<{ date: string; portion: number }>>([{ date: "", portion: 50 }, { date: "", portion: 50 }])
+  const [playlistUrlOrId, setPlaylistUrlOrId] = useState("")
+  const [routineDays, setRoutineDays] = useState("7")
+  const [routineStartDate, setRoutineStartDate] = useState(new Date().toISOString().split("T")[0])
+  const [routineDurationPerVideo, setRoutineDurationPerVideo] = useState("25")
+  const [routineLoading, setRoutineLoading] = useState(false)
+  const [routineError, setRoutineError] = useState("")
+  const [youtubeRoutine, setYoutubeRoutine] = useState<YoutubeRoutineDay[]>([])
+  const [routinePlaylistTitle, setRoutinePlaylistTitle] = useState("")
+  const [routineCreatedCount, setRoutineCreatedCount] = useState(0)
 
   // Fetch user streak on mount
   useEffect(() => {
@@ -406,6 +428,82 @@ export default function HabitModePlannerPage() {
     setDistributionDays(updated)
   }
 
+  const generateYoutubeRoutine = async () => {
+    if (!playlistUrlOrId.trim()) {
+      setRoutineError("Please enter a YouTube playlist URL or playlist ID")
+      return
+    }
+
+    setRoutineLoading(true)
+    setRoutineError("")
+    setRoutineCreatedCount(0)
+
+    try {
+      const response = await APIClient.post<{
+        playlist: { title: string }
+        studyPlan: YoutubeRoutineDay[]
+      }>("/plan/youtube-playlist/routine", {
+        playlistUrlOrId,
+        days: Number(routineDays),
+        startDate: routineStartDate,
+        createTasks: false,
+      })
+
+      setYoutubeRoutine(response.studyPlan)
+      setRoutinePlaylistTitle(response.playlist.title)
+    } catch (error) {
+      setYoutubeRoutine([])
+      setRoutinePlaylistTitle("")
+      setRoutineError(error instanceof Error ? error.message : "Failed to generate playlist routine")
+    } finally {
+      setRoutineLoading(false)
+    }
+  }
+
+  const createRoutineTasks = async () => {
+    if (!playlistUrlOrId.trim()) {
+      setRoutineError("Please enter a YouTube playlist URL or playlist ID")
+      return
+    }
+
+    const parsedDuration = Number(routineDurationPerVideo)
+    if (!parsedDuration || parsedDuration < 1) {
+      setRoutineError("Minutes per video must be at least 1")
+      return
+    }
+
+    setRoutineLoading(true)
+    setRoutineError("")
+
+    try {
+      const response = await APIClient.post<{
+        playlist: { title: string }
+        studyPlan: YoutubeRoutineDay[]
+        createdTasksCount: number
+      }>("/plan/youtube-playlist/routine", {
+        playlistUrlOrId,
+        days: Number(routineDays),
+        startDate: routineStartDate,
+        createTasks: true,
+        durationPerVideo: parsedDuration,
+      })
+
+      setYoutubeRoutine(response.studyPlan)
+      setRoutinePlaylistTitle(response.playlist.title)
+      setRoutineCreatedCount(response.createdTasksCount || 0)
+
+      if (view === "daily") {
+        fetchDailyTasks()
+      } else {
+        fetchMonthlyTasks()
+      }
+    } catch (error) {
+      setRoutineError(error instanceof Error ? error.message : "Failed to create tasks")
+    } finally {
+      setRoutineLoading(false)
+    }
+  }
+
   const categoryColors = {
     coding: "bg-blue-500/20 text-blue-200",
     reading: "bg-purple-500/20 text-purple-200",
@@ -598,6 +696,101 @@ export default function HabitModePlannerPage() {
               Add Task
             </Button>
           </div>
+        </motion.div>
+
+        {/* YouTube playlist routine */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.45 }}
+          className="mb-3 p-3 rounded-lg bg-white/6 border border-white/15 backdrop-blur-xl"
+        >
+          <p className="text-xs text-slate-400 mb-2 font-semibold">YOUTUBE PLAYLIST STUDY ROUTINE</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-2">
+            <Input
+              placeholder="Playlist URL or ID"
+              value={playlistUrlOrId}
+              onChange={(e) => setPlaylistUrlOrId(e.target.value)}
+              className="bg-slate-900/45 border-white/15 text-slate-100 placeholder:text-slate-500 md:col-span-2"
+            />
+            <Input
+              type="number"
+              min="1"
+              max="365"
+              placeholder="Days"
+              value={routineDays}
+              onChange={(e) => setRoutineDays(e.target.value)}
+              className="bg-slate-900/45 border-white/15 text-slate-100"
+            />
+            <Input
+              type="date"
+              value={routineStartDate}
+              onChange={(e) => setRoutineStartDate(e.target.value)}
+              className="bg-slate-900/45 border-white/15 text-slate-100"
+            />
+            <Input
+              type="number"
+              min="1"
+              max="600"
+              placeholder="Minutes/video"
+              value={routineDurationPerVideo}
+              onChange={(e) => setRoutineDurationPerVideo(e.target.value)}
+              className="bg-slate-900/45 border-white/15 text-slate-100"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2 mb-2">
+            <Button
+              onClick={generateYoutubeRoutine}
+              disabled={routineLoading || !playlistUrlOrId.trim()}
+              className="bg-gradient-to-r from-violet-500 to-pink-500 border-0 h-9 text-sm"
+            >
+              Generate Routine
+            </Button>
+            <Button
+              onClick={createRoutineTasks}
+              disabled={routineLoading || !playlistUrlOrId.trim()}
+              variant="outline"
+              className="border-white/15 text-slate-100 hover:bg-white/10 h-9 text-sm"
+            >
+              Create Tasks from Routine
+            </Button>
+          </div>
+
+          {routineError && <p className="text-xs text-red-400 mb-2">{routineError}</p>}
+          {routineLoading && <p className="text-xs text-slate-400 mb-2">Generating playlist routine...</p>}
+          {routinePlaylistTitle && (
+            <p className="text-xs text-cyan-300 mb-2">
+              Playlist: {routinePlaylistTitle}
+              {routineCreatedCount > 0 ? ` • ${routineCreatedCount} tasks created` : ""}
+            </p>
+          )}
+
+          {youtubeRoutine.length > 0 && (
+            <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+              {youtubeRoutine.map((dayPlan) => (
+                <div key={`${dayPlan.day}-${dayPlan.date}`} className="p-2 rounded bg-white/5 border border-white/10">
+                  <p className="text-xs text-slate-200 font-semibold mb-1">
+                    Day {dayPlan.day} • {new Date(dayPlan.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })} • {dayPlan.taskCount} videos
+                  </p>
+                  <div className="space-y-1">
+                    {dayPlan.videos.map((video) => (
+                      <a
+                        key={video.videoId}
+                        href={video.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block text-xs text-slate-300 hover:text-cyan-300 truncate"
+                      >
+                        • {video.title}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </motion.div>
 
         {/* Tasks list */}
