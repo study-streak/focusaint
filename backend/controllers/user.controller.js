@@ -1,5 +1,6 @@
 import User from "../models/User.js"
 import StreakRecord from "../models/StreakRecord.js"
+import HabitSession from "../models/HabitSession.js"
 
 async function getUserDashboard(req, res){
   try {
@@ -11,7 +12,6 @@ async function getUserDashboard(req, res){
 
     // Calculate weekly consistency
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    const HabitSession = require("../models/HabitSession.js").default
     const weeklySessions = await HabitSession.countDocuments({
       userId: req.user.userId,
       sessionDate: { $gte: oneWeekAgo },

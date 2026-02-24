@@ -243,49 +243,56 @@ router.get("/stats", authenticateToken, async (req, res) => {
 
 // Helper function to update streak
 async function updateStreak(userId) {
-  const user = await User.findById(userId)
-  const streakRecord = await StreakRecord.findOne({ userId })
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-
-  const todaySession = await HabitSession.findOne({
-    userId,
-    sessionDate: today,
-    status: "completed",
-  })
-
-  if (!todaySession) return
-
-  const lastActiveDate = streakRecord?.lastActiveDate
-
-  if (!lastActiveDate || lastActiveDate.toDateString() === yesterday.toDateString()) {
-    // Increment streak
-    user.currentStreak += 1
-    if (user.currentStreak > user.longestStreak) {
-      user.longestStreak = user.currentStreak
+  try {
+    const user = await User.findById(userId)
+    if (!user) {
+      throw new Error("User not found for streak update")
     }
-  } else if (lastActiveDate.toDateString() !== today.toDateString()) {
-    // Reset streak
-    if (streakRecord && streakRecord.currentStreak > 0) {
-      streakRecord.streakHistory.push({
-        startDate: streakRecord.lastActiveDate,
-        endDate: new Date(),
-        length: streakRecord.currentStreak,
-      })
+
+    const streakRecord = (await StreakRecord.findOne({ userId })) || (await StreakRecord.create({ userId }))
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    const todaySession = await HabitSession.findOne({
+      userId,
+      sessionDate: today,
+      status: "completed",
+    })
+
+    if (!todaySession) return
+
+    const lastActiveDate = streakRecord.lastActiveDate
+
+    if (!lastActiveDate || lastActiveDate.toDateString() === yesterday.toDateString()) {
+      user.currentStreak += 1
+      if (user.currentStreak > user.longestStreak) {
+        user.longestStreak = user.currentStreak
+      }
+    } else if (lastActiveDate.toDateString() !== today.toDateString()) {
+      if (streakRecord.currentStreak > 0) {
+        streakRecord.streakHistory.push({
+          startDate: streakRecord.lastActiveDate,
+          endDate: new Date(),
+          length: streakRecord.currentStreak,
+        })
+      }
+      user.currentStreak = 1
     }
-    user.currentStreak = 1
+
+    streakRecord.currentStreak = user.currentStreak
+    streakRecord.longestStreak = user.longestStreak
+    streakRecord.lastActiveDate = new Date()
+    streakRecord.totalSessions = user.totalSessions
+
+    await user.save()
+    await streakRecord.save()
+  } catch (error) {
+    console.error("updateStreak helper error:", error)
+    throw error
   }
-
-  streakRecord.currentStreak = user.currentStreak
-  streakRecord.longestStreak = user.longestStreak
-  streakRecord.lastActiveDate = new Date()
-  streakRecord.totalSessions = user.totalSessions
-
-  await user.save()
-  await streakRecord.save()
 }
 
 export default router
