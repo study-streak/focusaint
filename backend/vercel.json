@@ -14,6 +14,6 @@
   ],
   "env": {
     "NODE_ENV": "production",
-    "VERCEL" : true
+    "VERCEL" : "true"
   }
 }
