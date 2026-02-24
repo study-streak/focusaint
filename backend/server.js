@@ -10,7 +10,6 @@ import userRoutes from "./routes/user.js"
 import habitRoutes from "./routes/habit.js"
 import planRoutes from "./routes/plan.js"
 import { errorHandler } from "./middleware/errorHandler.js"
-
 dotenv.config()
 
 const app = express()
@@ -31,7 +30,7 @@ app.use(
   })
 )
 app.use(express.json())
-app.use("/uploads", express.static(uploadsDir))
+app.use(isVercel ? "/tmp/uploads" : "/uploads", express.static(uploadsDir))
 
 // MongoDB Connection
 let isMongoConnected = false
