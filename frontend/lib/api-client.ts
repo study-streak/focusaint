@@ -7,7 +7,7 @@ export class APIClient {
 
   static async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const token = this.getToken()
-    const headers = {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...options.headers,
     }

@@ -54,7 +54,7 @@ function getPlaylistId(input = "") {
   const trimmed = String(input).trim()
   if (!trimmed) return null
 
-  if (/^PL[\w-]+$/i.test(trimmed)) {
+  if (/^[a-zA-Z0-9_-]{10,}$/.test(trimmed)) {
     return trimmed
   }
 
@@ -103,6 +103,214 @@ function parsePlaylistFeed(xml = "") {
   }
 }
 
+function getTextFromRuns(textObject) {
+  if (!textObject) return ""
+  if (typeof textObject.simpleText === "string") return textObject.simpleText
+  if (Array.isArray(textObject.runs)) {
+    return textObject.runs.map((run) => run?.text || "").join("").trim()
+  }
+  return ""
+}
+
+function collectKeyValues(node, key, output = []) {
+  if (!node || typeof node !== "object") return output
+
+  if (Array.isArray(node)) {
+    node.forEach((item) => collectKeyValues(item, key, output))
+    return output
+  }
+
+  if (Object.prototype.hasOwnProperty.call(node, key)) {
+    output.push(node[key])
+  }
+
+  Object.values(node).forEach((value) => collectKeyValues(value, key, output))
+  return output
+}
+
+function extractVideosAndContinuationFromObject(obj) {
+  const videoRenderers = collectKeyValues(obj, "playlistVideoRenderer", [])
+  const continuationItems = collectKeyValues(obj, "continuationItemRenderer", [])
+
+  const videos = videoRenderers
+    .map((renderer) => {
+      const videoId = renderer?.videoId
+      const title = getTextFromRuns(renderer?.title)
+      const publishedAt = getTextFromRuns(renderer?.publishedTimeText) || null
+
+      if (!videoId || !title) return null
+      return {
+        videoId,
+        title,
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+        publishedAt,
+      }
+    })
+    .filter(Boolean)
+
+  const continuationTokens = continuationItems
+    .map((item) => item?.continuationEndpoint?.continuationCommand?.token)
+    .filter(Boolean)
+
+  return {
+    videos,
+    continuationToken: continuationTokens[0] || "",
+  }
+}
+
+async function fetchPlaylistViaWebLoop(playlistId) {
+  const playlistUrl = `https://www.youtube.com/playlist?list=${playlistId}&hl=en&gl=US`
+  const pageResponse = await fetch(playlistUrl, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+      "Accept-Language": "en-US,en;q=0.9",
+    },
+  })
+
+  if (!pageResponse.ok) {
+    throw new Error(`Failed to load playlist page (${pageResponse.status})`)
+  }
+
+  const html = await pageResponse.text()
+
+  const initialDataMatch = html.match(/var ytInitialData = (\{[\s\S]*?\});/) || html.match(/window\["ytInitialData"\] = (\{[\s\S]*?\});/)
+  const apiKeyMatch = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/)
+  const clientVersionMatch = html.match(/"INNERTUBE_CLIENT_VERSION":"([^"]+)"/)
+  const titleMatch = html.match(/<title>([\s\S]*?)<\/title>/i)
+
+  if (!initialDataMatch) {
+    throw new Error("Unable to parse YouTube initial playlist data")
+  }
+
+  const initialData = JSON.parse(initialDataMatch[1])
+  const apiKey = apiKeyMatch?.[1]
+  const clientVersion = clientVersionMatch?.[1] || "2.20240101.00.00"
+
+  const playlistTitle = decodeXmlEntities((titleMatch?.[1] || "YouTube Playlist").replace(/ - YouTube$/i, "").trim())
+
+  const seen = new Set()
+  const allVideos = []
+
+  const firstBatch = extractVideosAndContinuationFromObject(initialData)
+  firstBatch.videos.forEach((video) => {
+    if (seen.has(video.videoId)) return
+    seen.add(video.videoId)
+    allVideos.push(video)
+  })
+
+  let continuationToken = firstBatch.continuationToken
+  let guardCounter = 0
+
+  while (continuationToken && apiKey && guardCounter < 300) {
+    const continuationResponse = await fetch(
+      `https://www.youtube.com/youtubei/v1/browse?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+        body: JSON.stringify({
+          context: {
+            client: {
+              clientName: "WEB",
+              clientVersion,
+            },
+          },
+          continuation: continuationToken,
+        }),
+      }
+    )
+
+    if (!continuationResponse.ok) {
+      break
+    }
+
+    const continuationJson = await continuationResponse.json()
+    const batch = extractVideosAndContinuationFromObject(continuationJson)
+
+    batch.videos.forEach((video) => {
+      if (seen.has(video.videoId)) return
+      seen.add(video.videoId)
+      allVideos.push(video)
+    })
+
+    continuationToken = batch.continuationToken
+    guardCounter += 1
+  }
+
+  return {
+    feedTitle: playlistTitle,
+    videos: allVideos,
+  }
+}
+
+async function fetchPlaylistViaYouTubeDataApi(playlistId) {
+  const apiKey = process.env.YOUTUBE_API_KEY
+  if (!apiKey) {
+    return null
+  }
+
+  const videos = []
+  const seenVideoIds = new Set()
+  let nextPageToken = ""
+  let playlistTitle = "YouTube Playlist"
+  let guardCounter = 0
+
+  do {
+    const url = new URL("https://www.googleapis.com/youtube/v3/playlistItems")
+    url.searchParams.set("part", "snippet")
+    url.searchParams.set("playlistId", playlistId)
+    url.searchParams.set("maxResults", "50")
+    url.searchParams.set("key", apiKey)
+    if (nextPageToken) {
+      url.searchParams.set("pageToken", nextPageToken)
+    }
+
+    const response = await fetch(url)
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`YouTube Data API error (${response.status}): ${errorText}`)
+    }
+
+    const data = await response.json()
+    const items = Array.isArray(data.items) ? data.items : []
+
+    items.forEach((item) => {
+      const snippet = item?.snippet || {}
+      const videoId = snippet?.resourceId?.videoId
+      const title = snippet?.title
+
+      if (!videoId || !title || seenVideoIds.has(videoId)) {
+        return
+      }
+
+      if (snippet.playlistTitle) {
+        playlistTitle = snippet.playlistTitle
+      }
+
+      seenVideoIds.add(videoId)
+      videos.push({
+        videoId,
+        title,
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+        publishedAt: snippet.publishedAt || null,
+      })
+    })
+
+    nextPageToken = data.nextPageToken || ""
+    guardCounter += 1
+  } while (nextPageToken && guardCounter < 200)
+
+  return {
+    feedTitle: playlistTitle,
+    videos,
+  }
+}
+
 function buildStudyRoutine(videos = [], startDate, days) {
   const routine = []
   const parsedStartDate = new Date(startDate)
@@ -117,10 +325,19 @@ function buildStudyRoutine(videos = [], startDate, days) {
     })
   }
 
-  videos.forEach((video, index) => {
-    const dayIndex = index % days
-    routine[dayIndex].videos.push(video)
-  })
+  const totalVideos = videos.length
+  const effectiveDays = Math.max(1, days)
+  const basePerDay = Math.floor(totalVideos / effectiveDays)
+  const remainder = totalVideos % effectiveDays
+  let cursor = 0
+
+  for (let dayIndex = 0; dayIndex < effectiveDays; dayIndex += 1) {
+    const dayCount = basePerDay + (dayIndex < remainder ? 1 : 0)
+    if (dayCount > 0) {
+      routine[dayIndex].videos = videos.slice(cursor, cursor + dayCount)
+      cursor += dayCount
+    }
+  }
 
   return routine.map((item) => ({
     ...item,
@@ -474,15 +691,55 @@ router.post("/youtube-playlist/routine", authenticateToken, async (req, res) => 
       return res.status(400).json({ error: "startDate must be a valid date (YYYY-MM-DD)" })
     }
 
-    const feedUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`
-    const response = await fetch(feedUrl)
+    let feedTitle = "YouTube Playlist"
+    let videos = []
+    let dataSource = "youtube-feed"
+    let warning = null
 
-    if (!response.ok) {
-      return res.status(400).json({ error: "Unable to fetch playlist feed. Check if playlist ID is valid and public." })
+    try {
+      const apiResult = await fetchPlaylistViaYouTubeDataApi(playlistId)
+      if (apiResult) {
+        feedTitle = apiResult.feedTitle
+        videos = apiResult.videos
+        dataSource = "youtube-data-api"
+      }
+    } catch (apiError) {
+      console.warn("YouTube Data API unavailable, falling back to feed:", apiError)
+      warning = "Using public YouTube feed fallback because Data API failed. Feed may include only latest videos."
     }
 
-    const xml = await response.text()
-    const { feedTitle, videos } = parsePlaylistFeed(xml)
+    if (videos.length === 0) {
+      try {
+        const webResult = await fetchPlaylistViaWebLoop(playlistId)
+        if (webResult.videos.length > 0) {
+          feedTitle = webResult.feedTitle
+          videos = webResult.videos
+          dataSource = "youtube-web-loop"
+        }
+      } catch (webError) {
+        console.warn("YouTube web continuation fetch failed, falling back to feed:", webError)
+        warning = "Using public YouTube feed fallback because web continuation fetch failed. Feed may include only latest videos."
+      }
+    }
+
+    if (videos.length === 0) {
+      const feedUrl = `https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`
+      const response = await fetch(feedUrl)
+
+      if (!response.ok) {
+        return res.status(400).json({ error: "Unable to fetch playlist. Check if playlist ID is valid and public." })
+      }
+
+      const xml = await response.text()
+      const parsed = parsePlaylistFeed(xml)
+      feedTitle = parsed.feedTitle
+      videos = parsed.videos
+      dataSource = "youtube-feed"
+
+      if (!process.env.YOUTUBE_API_KEY) {
+        warning = "Set YOUTUBE_API_KEY for the most reliable full-playlist fetch. Public feed fallback can be limited."
+      }
+    }
 
     if (videos.length === 0) {
       return res.status(404).json({ error: "No videos found. The playlist may be empty or private." })
@@ -498,9 +755,19 @@ router.post("/youtube-playlist/routine", authenticateToken, async (req, res) => 
           title: `Watch: ${video.title}`,
           description: video.url,
           duration: parsedDuration,
-          category: "reading",
+          category: "study",
           assignedDate: dayPlan.date,
           monthYear: dayPlan.date.slice(0, 7),
+          attachments: [
+            {
+              _id: new mongoose.Types.ObjectId(),
+              type: "link",
+              name: video.title,
+              url: video.url,
+              uploadedAt: new Date(),
+              openCount: 0,
+            },
+          ],
           completed: false,
         }))
       )
@@ -518,6 +785,8 @@ router.post("/youtube-playlist/routine", authenticateToken, async (req, res) => 
       days: parsedDays,
       startDate: start,
       durationPerVideo: parsedDuration,
+      dataSource,
+      warning,
       studyPlan,
       createdTasksCount: createdTasks.length,
     })

@@ -24,7 +24,7 @@ const habitTaskSchema = new mongoose.Schema(
     },
     category: {
       type: String,
-      enum: ["coding", "reading", "writing", "problem-solving", "project", "review", "other"],
+      enum: ["study","coding", "reading", "writing", "problem-solving", "project", "review", "other"],
       default: "other",
     },
     // Date the task is assigned to (YYYY-MM-DD)

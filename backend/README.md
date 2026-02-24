@@ -31,6 +31,7 @@ cp .env.example .env
 MONGODB_URI=mongodb://localhost:27017/focusaint
 JWT_SECRET=your_secure_jwt_secret_key
 CORS_ORIGIN=http://localhost:3000
+YOUTUBE_API_KEY=your_youtube_data_api_key_optional
 ```
 
 ### Running
@@ -126,6 +127,7 @@ JWT_SECRET=your_jwt_secret_key
 CORS_ORIGIN=http://localhost:3000
 PORT=5000
 OTP_EXPIRY=10
+YOUTUBE_API_KEY=optional_for_full_youtube_playlist_fetch
 ```
 
 ## Troubleshooting
