@@ -12,10 +12,7 @@ export async function connectToMongo() {
   if (!cached.promise) {
     mongoose.set("bufferCommands", false)
 
-    cached.promise = mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    }).then((mongoose) => {
+    cached.promise = mongoose.connect(process.env.MONGODB_URI).then((mongoose) => {
       console.log("✓ MongoDB connected")
       return mongoose
     })
