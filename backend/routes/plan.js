@@ -12,13 +12,14 @@ import { authenticateToken } from "../middleware/auth.js"
 const router = express.Router()
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const uploadsDir = path.join(__dirname, "..", "uploads")
+const isVercel = Boolean(process.env.VERCEL)
+const uploadsDir = isVercel ? path.join("/tmp", "uploads") : path.join(__dirname, "..", "uploads")
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true })
 }
 
-const storage = multer.memoryStorage({
+const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
     cb(null, uploadsDir)
   },

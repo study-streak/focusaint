@@ -14,9 +14,10 @@ import { errorHandler } from "./middleware/errorHandler.js"
 dotenv.config()
 
 const app = express()
+const isVercel = Boolean(process.env.VERCEL)
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const uploadsDir = path.join(__dirname, "uploads")
+const uploadsDir = isVercel ? path.join("/tmp", "uploads") : path.join(__dirname, "uploads")
 
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true })
@@ -33,10 +34,17 @@ app.use(express.json())
 app.use("/uploads", express.static(uploadsDir))
 
 // MongoDB Connection
-mongoose
-  .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/focusaint")
-  .then(() => console.log("✓ MongoDB connected successfully"))
-  .catch((err) => console.error("✗ MongoDB connection error:", err))
+let isMongoConnected = false
+async function connectToMongo() {
+  if (isMongoConnected) return
+  await mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/focusaint")
+  isMongoConnected = true
+  console.log("✓ MongoDB connected successfully")
+}
+
+connectToMongo().catch((err) => {
+  console.error("✗ MongoDB connection error:", err)
+})
 
 // Routes
 app.use("/api/auth", authRoutes)
@@ -53,6 +61,10 @@ app.get("/api/health", (req, res) => {
 app.use(errorHandler)
 
 const PORT = process.env.PORT || 5000
-app.listen(PORT, () => {
-  console.log(`✓ focusaint server running on http://localhost:${PORT}`)
-})
+if (!isVercel) {
+  app.listen(PORT, () => {
+    console.log(`✓ focusaint server running on http://localhost:${PORT}`)
+  })
+}
+
+export default app
