@@ -4,12 +4,15 @@ import HabitSession from "../models/HabitSession.js"
 import StreakRecord from "../models/StreakRecord.js"
 import User from "../models/User.js"
 import { authenticateToken } from "../middleware/auth.js"
+import { connectToMongo } from "../utils/db.js"
 
 const router = express.Router()
 
 // Start habit session
 router.post("/start", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { minDurationMinutes = 25 } = req.body
 
     // Check if session already active today
@@ -46,6 +49,8 @@ router.post("/start", authenticateToken, async (req, res) => {
 // End habit session
 router.post("/:sessionId/end", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { sessionId } = req.params
 
     const session = await HabitSession.findOne({
@@ -88,6 +93,8 @@ router.post("/:sessionId/end", authenticateToken, async (req, res) => {
 // Get session history
 router.get("/history", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { daysBack = 30 } = req.query
     const startDate = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000)
 
@@ -109,6 +116,8 @@ router.get("/history", authenticateToken, async (req, res) => {
 // Get streak info
 router.get("/streak", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const streak = await StreakRecord.findOne({ userId: req.user.userId })
     const user = await User.findById(req.user.userId)
 
@@ -127,6 +136,8 @@ router.get("/streak", authenticateToken, async (req, res) => {
 
 router.post("/session", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { duration, mode } = req.body
 
     if (!duration || duration < 1) {
@@ -168,6 +179,8 @@ router.post("/session", authenticateToken, async (req, res) => {
 
 router.get("/stats", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const user = await User.findById(req.user.userId)
     const streakRecord = await StreakRecord.findOne({ userId: req.user.userId })
 
@@ -244,6 +257,8 @@ router.get("/stats", authenticateToken, async (req, res) => {
 // Helper function to update streak
 async function updateStreak(userId) {
   try {
+      await connectToMongo()
+
     const user = await User.findById(userId)
     if (!user) {
       throw new Error("User not found for streak update")

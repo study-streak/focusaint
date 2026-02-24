@@ -32,18 +32,19 @@ app.use(
 app.use(express.json())
 app.use(isVercel ? "/tmp/uploads" : "/uploads", express.static(uploadsDir))
 
-// MongoDB Connection
-let isMongoConnected = false
-async function connectToMongo() {
-  if (isMongoConnected) return
-  await mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/focusaint")
-  isMongoConnected = true
-  console.log("✓ MongoDB connected successfully")
-}
 
-connectToMongo().catch((err) => {
-  console.error("✗ MongoDB connection error:", err)
-})
+// MongoDB Connection
+// let isMongoConnected = false
+// async function connectToMongo() {
+//   if (isMongoConnected) return
+//   await mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/focusaint")
+//   isMongoConnected = true
+//   console.log("✓ MongoDB connected successfully")
+// }
+
+// connectToMongo().catch((err) => {
+//   console.error("✗ MongoDB connection error:", err)
+// })
 
 // Routes
 app.use("/api/auth", authRoutes)

@@ -6,12 +6,15 @@ import OTP from "../models/OTP.js"
 import StreakRecord from "../models/StreakRecord.js"
 import { sendOTP } from "../services/email.js"
 import { validateEmail, validatePassword } from "../utils/validation.js"
+import { connectToMongo } from "../utils/db.js"
 
 
 const router = express.Router()
 
 // Resend OTP (only for existing pending verifications)
 router.post("/resend-otp", async (req, res) => {
+    await connectToMongo()
+
   try {
     const { email } = req.body
 
@@ -57,6 +60,8 @@ router.post("/resend-otp", async (req, res) => {
 // Verify OTP and mark user email as verified (no user creation)
 router.post("/verify-otp", async (req, res) => {
   try {
+      await connectToMongo()
+
     const { email, otp } = req.body
 
     if (!validateEmail(email) || !otp) {
@@ -120,6 +125,8 @@ router.post("/verify-otp", async (req, res) => {
 // Signup with password -> create user, then send OTP to verify email
 router.post("/signup", async (req, res) => {
   try {
+      await connectToMongo()
+
     const { email, password, name, learningGoal } = req.body;
 
     if (!validateEmail(email)) {
@@ -167,6 +174,8 @@ router.post("/signup", async (req, res) => {
 // Password-based login; if unverified, send OTP and require verification
 router.post("/login", async (req, res) => {
   try {
+      await connectToMongo()
+
     const { email, password } = req.body
 
     if (!validateEmail(email) || !password) {

@@ -8,7 +8,7 @@ import HabitTask from "../models/HabitTask.js"
 import User from "../models/User.js"
 import StreakRecord from "../models/StreakRecord.js"
 import { authenticateToken } from "../middleware/auth.js"
-
+import { connectToMongo } from "../utils/db.js"
 const router = express.Router()
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -135,6 +135,8 @@ function buildStudyRoutine(videos = [], startDate, days) {
  */
 router.post("/task", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { title, description, duration, category, assignedDate, monthYear } = req.body
 
     if (!title || !assignedDate || !monthYear || !duration) {
@@ -168,6 +170,8 @@ router.post("/task", authenticateToken, async (req, res) => {
  */
 router.get("/daily", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { date } = req.query
 
     if (!date) {
@@ -208,6 +212,8 @@ router.get("/daily", authenticateToken, async (req, res) => {
  */
 router.get("/monthly", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { month } = req.query
 
     if (!month) {
@@ -257,6 +263,8 @@ router.get("/monthly", authenticateToken, async (req, res) => {
  */
 router.patch("/task/:taskId/complete", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { taskId } = req.params
 
     const task = await HabitTask.findOne({
@@ -305,6 +313,8 @@ router.patch("/task/:taskId/complete", authenticateToken, async (req, res) => {
  */
 router.patch("/task/:taskId/uncomplete", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { taskId } = req.params
 
     const task = await HabitTask.findOne({
@@ -338,6 +348,8 @@ router.patch("/task/:taskId/uncomplete", authenticateToken, async (req, res) => 
  */
 router.patch("/task/:taskId", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { taskId } = req.params
     const { title, description, duration, category, assignedDate, monthYear } = req.body
 
@@ -375,6 +387,8 @@ router.patch("/task/:taskId", authenticateToken, async (req, res) => {
  */
 router.delete("/task/:taskId", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { taskId } = req.params
 
     const task = await HabitTask.findOneAndDelete({
@@ -403,6 +417,8 @@ router.delete("/task/:taskId", authenticateToken, async (req, res) => {
  */
 router.post("/bulk", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { monthYear, tasks } = req.body
 
     if (!monthYear || !Array.isArray(tasks) || tasks.length === 0) {
@@ -437,6 +453,8 @@ router.post("/bulk", authenticateToken, async (req, res) => {
  */
 router.post("/youtube-playlist/routine", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { playlistUrlOrId, days, startDate, createTasks, durationPerVideo } = req.body
 
     const playlistId = getPlaylistId(playlistUrlOrId)
@@ -573,6 +591,8 @@ async function updateStreakFromTask(userId) {
  */
 router.post("/task/:taskId/attachment", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { taskId } = req.params
     const { type, name, url, fileSize, mimeType } = req.body
 
@@ -621,6 +641,8 @@ router.post("/task/:taskId/attachment", authenticateToken, async (req, res) => {
  */
 router.post("/task/:taskId/attachment/upload", authenticateToken, upload.single("file"), async (req, res) => {
   try {
+      await connectToMongo()
+
     const { taskId } = req.params
     const customName = req.body?.name
     const uploadedFile = req.file
@@ -665,6 +687,8 @@ router.post("/task/:taskId/attachment/upload", authenticateToken, upload.single(
  */
 router.delete("/task/:taskId/attachment/:attachmentId", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { taskId, attachmentId } = req.params
 
     const task = await HabitTask.findOne({ _id: taskId, userId: req.user.userId })
@@ -692,6 +716,8 @@ router.delete("/task/:taskId/attachment/:attachmentId", authenticateToken, async
  */
 router.post("/task/:taskId/deadline", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { taskId } = req.params
     const { deadline, proctoredMode, proctoredSettings } = req.body
 
@@ -734,6 +760,8 @@ router.post("/task/:taskId/deadline", authenticateToken, async (req, res) => {
  */
 router.post("/task/:taskId/distribute", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { taskId } = req.params
     const { distributedAcrossDays } = req.body
 
@@ -777,6 +805,8 @@ router.post("/task/:taskId/distribute", authenticateToken, async (req, res) => {
  */
 router.get("/task/:taskId/proctored", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { taskId } = req.params
 
     const task = await HabitTask.findOne({ _id: taskId, userId: req.user.userId })
@@ -809,6 +839,8 @@ router.get("/task/:taskId/proctored", authenticateToken, async (req, res) => {
  */
 router.post("/task/:taskId/proctored/start", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { taskId } = req.params
     const { attachmentId } = req.body
 
@@ -859,6 +891,8 @@ router.post("/task/:taskId/proctored/start", authenticateToken, async (req, res)
  */
 router.post("/task/:taskId/proctored/end", authenticateToken, async (req, res) => {
   try {
+      await connectToMongo()
+
     const { taskId } = req.params
     const { attachmentId, violations, duration } = req.body
 

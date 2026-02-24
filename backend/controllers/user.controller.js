@@ -1,9 +1,12 @@
 import User from "../models/User.js"
 import StreakRecord from "../models/StreakRecord.js"
 import HabitSession from "../models/HabitSession.js"
+import { connectToMongo } from "../utils/db.js"
 
 async function getUserDashboard(req, res){
   try {
+      await connectToMongo()
+
     const user = await User.findById(req.user.userId).select(
       "name email currentStreak longestStreak totalSessions lastSessionDate",
     )
@@ -31,6 +34,8 @@ async function getUserDashboard(req, res){
 
 async function getUserProfile(req, res) {
   try {
+      await connectToMongo()
+
     const user = await User.findById(req.user.userId).select("-password")
     if (!user) {
       return res.status(404).json({ error: "User not found" })
@@ -50,6 +55,8 @@ async function getUserProfile(req, res) {
 
 async function updateUserProfile(req, res) {
   try {
+      await connectToMongo()
+
     const { name, learningGoal, preferredStudyTime, modePreference } = req.body
 
     const updateData = {}
