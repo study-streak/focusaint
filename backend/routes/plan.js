@@ -9,7 +9,66 @@ import User from "../models/User.js"
 import StreakRecord from "../models/StreakRecord.js"
 import { authenticateToken } from "../middleware/auth.js"
 import { connectToMongo } from "../utils/db.js"
+import { inferProctoredPreset, mergeProctoredSettings, normalizeProctoredPreset } from "../utils/proctoredPresets.js"
 const router = express.Router()
+
+// Place this after router initialization
+router.patch("/task/:taskId/attachment/:attachmentId/complete", authenticateToken, async (req, res) => {
+  try {
+    await connectToMongo();
+    const { taskId, attachmentId } = req.params;
+
+    const task = await HabitTask.findOne({ _id: taskId, userId: req.user.userId });
+    if (!task) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    // Find the attachment and mark as complete
+    const attachment = task.attachments.id(attachmentId);
+    if (!attachment) {
+      return res.status(404).json({ error: "Attachment not found" });
+    }
+
+    // Add a completed field if not present
+    if (typeof attachment.completed === "undefined") {
+      attachment.completed = true;
+    } else {
+      attachment.completed = true;
+    }
+    attachment.completedAt = new Date();
+
+    await task.save();
+
+    res.json({
+      message: "Attachment marked as complete",
+      attachment,
+      task,
+    });
+  } catch (error) {
+    console.error("Mark attachment complete error:", error);
+    res.status(500).json({ error: "Failed to mark attachment complete" });
+  }
+});
+
+// PATCH endpoint to unmark attachment as complete
+router.patch("/task/:taskId/attachment/:attachmentId/uncomplete", authenticateToken, async (req, res) => {
+  try {
+    await connectToMongo();
+    const { taskId, attachmentId } = req.params;
+
+    const task = await HabitTask.findOne({ _id: taskId, userId: req.user.userId });
+    if (!task) return res.status(404).json({ error: "Task not found" });
+    const attachment = task.attachments.id(attachmentId);
+    if (!attachment) return res.status(404).json({ error: "Attachment not found" });
+    attachment.completed = false;
+    await task.save();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// ...existing code...
+
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const isVercel = Boolean(process.env.VERCEL)
@@ -354,10 +413,21 @@ router.post("/task", authenticateToken, async (req, res) => {
   try {
       await connectToMongo()
 
-    const { title, description, duration, category, assignedDate, monthYear } = req.body
+    const { title, description, duration, category, assignedDate, monthYear, attachments } = req.body
 
     if (!title || !assignedDate || !monthYear || !duration) {
       return res.status(400).json({ error: "Missing required fields" })
+    }
+
+    // If attachments are provided, ensure each has a unique _id and uploadedAt
+    let processedAttachments = []
+    if (Array.isArray(attachments) && attachments.length > 0) {
+      processedAttachments = attachments.map(att => ({
+        ...att,
+        _id: new mongoose.Types.ObjectId(),
+        uploadedAt: att.uploadedAt ? new Date(att.uploadedAt) : new Date(),
+        openCount: 0,
+      }))
     }
 
     const task = await HabitTask.create({
@@ -369,6 +439,7 @@ router.post("/task", authenticateToken, async (req, res) => {
       assignedDate,
       monthYear,
       completed: false,
+      attachments: processedAttachments,
     })
 
     res.status(201).json({
@@ -981,14 +1052,14 @@ router.delete("/task/:taskId/attachment/:attachmentId", authenticateToken, async
 /**
  * DEADLINE: Set task deadline
  * POST /plan/task/:taskId/deadline
- * Body: { deadline: "YYYY-MM-DD", proctoredMode?: boolean, proctoredSettings?: {...} }
+ * Body: { deadline: "YYYY-MM-DD", proctoredMode?: boolean, proctoredPreset?: "quick"|"deep", proctoredSettings?: {...} }
  */
 router.post("/task/:taskId/deadline", authenticateToken, async (req, res) => {
   try {
       await connectToMongo()
 
     const { taskId } = req.params
-    const { deadline, proctoredMode, proctoredSettings } = req.body
+    const { deadline, proctoredMode, proctoredPreset, proctoredSettings } = req.body
 
     if (!deadline) {
       return res.status(400).json({ error: "Deadline required (YYYY-MM-DD)" })
@@ -1003,11 +1074,20 @@ router.post("/task/:taskId/deadline", authenticateToken, async (req, res) => {
     if (proctoredMode !== undefined) {
       task.proctoredMode = proctoredMode
     }
-    if (proctoredSettings) {
-      task.proctoredSettings = {
+
+    const shouldApplyProctored =
+      proctoredMode === true || proctoredPreset !== undefined || proctoredSettings !== undefined
+
+    if (shouldApplyProctored) {
+      const resolvedPreset = normalizeProctoredPreset(
+        proctoredPreset || task.proctoredPreset || inferProctoredPreset(task.proctoredSettings),
+      )
+
+      task.proctoredPreset = resolvedPreset
+      task.proctoredSettings = mergeProctoredSettings(resolvedPreset, {
         ...task.proctoredSettings,
-        ...proctoredSettings,
-      }
+        ...(proctoredSettings || {}),
+      })
     }
 
     await task.save()
@@ -1091,6 +1171,7 @@ router.get("/task/:taskId/proctored", authenticateToken, async (req, res) => {
         attachments: task.attachments,
         deadline: task.deadline,
         proctoredMode: task.proctoredMode,
+        proctoredPreset: task.proctoredPreset,
         proctoredSettings: task.proctoredSettings,
         proctoredSessions: task.proctoredSessions,
       },
@@ -1104,14 +1185,14 @@ router.get("/task/:taskId/proctored", authenticateToken, async (req, res) => {
 /**
  * PROCTORED: Start proctored session
  * POST /plan/task/:taskId/proctored/start
- * Body: { attachmentId: "id" }
+ * Body: { attachmentId: "id", mode?: "quick"|"deep", proctoredPreset?: "quick"|"deep" }
  */
 router.post("/task/:taskId/proctored/start", authenticateToken, async (req, res) => {
   try {
       await connectToMongo()
 
     const { taskId } = req.params
-    const { attachmentId } = req.body
+    const { attachmentId, mode, proctoredPreset } = req.body
 
     const task = await HabitTask.findOne({ _id: taskId, userId: req.user.userId })
     if (!task) {
@@ -1122,6 +1203,13 @@ router.post("/task/:taskId/proctored/start", authenticateToken, async (req, res)
     if (!attachment) {
       return res.status(404).json({ error: "Attachment not found" })
     }
+
+    const selectedPreset = normalizeProctoredPreset(
+      mode || proctoredPreset || task.proctoredPreset || inferProctoredPreset(task.proctoredSettings),
+    )
+    task.proctoredPreset = selectedPreset
+    const effectiveSettings = mergeProctoredSettings(selectedPreset, task.proctoredSettings)
+    task.proctoredSettings = effectiveSettings
 
     // Mark attachment as opened
     if (!attachment.openedAt) {
@@ -1135,6 +1223,8 @@ router.post("/task/:taskId/proctored/start", authenticateToken, async (req, res)
       endedAt: null,
       duration: null,
       attachmentId,
+      proctoredPreset: selectedPreset,
+      proctoredSettingsSnapshot: effectiveSettings,
       violations: [],
     }
 
@@ -1145,7 +1235,8 @@ router.post("/task/:taskId/proctored/start", authenticateToken, async (req, res)
       message: "Proctored session started",
       sessionId: session._id || session.startedAt.getTime(),
       sessionStartTime: session.startedAt,
-      proctoredSettings: task.proctoredSettings,
+      proctoredPreset: selectedPreset,
+      proctoredSettings: effectiveSettings,
     })
   } catch (error) {
     console.error("Start proctored session error:", error)

@@ -5,6 +5,7 @@ import { motion } from "framer-motion"
 import { Settings, LogOut, Flame, ChevronDown } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { clearAuthToken } from "@/lib/auth-cookie"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +26,7 @@ export default function DashboardHeader({ user, stats }: { user: any; stats?: an
     .toUpperCase()
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
+    clearAuthToken()
     router.push("/login")
   }
 

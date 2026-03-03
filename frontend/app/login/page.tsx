@@ -1,23 +1,80 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { Suspense, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { persistAuthToken } from "@/lib/auth-cookie"
 import Link from "next/link"
 import { Mail, Lock, ArrowRight } from "lucide-react"
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState("")
-  const [step, setStep] = useState<"login" | "otp">("login")
+  const [step, setStep] = useState<"login" | "otp" | "forgot" | "reset">("login")
+    const [forgotEmail, setForgotEmail] = useState("")
+    const [forgotSent, setForgotSent] = useState(false)
+    const [resetToken, setResetToken] = useState("")
+    const [resetPassword, setResetPassword] = useState("")
+    const [resetConfirm, setResetConfirm] = useState("")
+    // Forgot password handler
+    const handleForgotPassword = async () => {
+      setLoading(true)
+      setError("")
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/forgot/forgot-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: forgotEmail }),
+        })
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || data.message)
+        setForgotSent(true)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to send reset link")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    // Reset password handler
+    const handleResetPassword = async () => {
+      setLoading(true)
+      setError("")
+      try {
+        if (resetPassword !== resetConfirm) throw new Error("Passwords do not match")
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/forgot/reset-password-token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: forgotEmail, token: resetToken, newPassword: resetPassword }),
+        })
+        const data = await response.json()
+        if (!response.ok) throw new Error(data.error || data.message)
+        setStep("login")
+        setError("")
+        setForgotSent(false)
+        setResetToken("")
+        setResetPassword("")
+        setResetConfirm("")
+        setForgotEmail("")
+        alert("Password reset successful! Please login.")
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to reset password")
+      } finally {
+        setLoading(false)
+      }
+    }
   const [password, setPassword] = useState("")
   const [otp, setOtp] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [resending, setResending] = useState(false)
+
+  const nextPath = searchParams.get("next")
+  const safeNextPath = nextPath && nextPath.startsWith("/") ? nextPath : "/dashboard"
 
   const handleResendOTP = async () => {
     setResending(true)
@@ -49,8 +106,8 @@ export default function LoginPage() {
       })
       const data = await response.json()
       if (response.ok) {
-        localStorage.setItem("token", data.token)
-        router.push("/dashboard")
+        persistAuthToken(data.token)
+        router.push(safeNextPath)
         return
       }
       // If unverified, move to OTP step
@@ -78,8 +135,8 @@ export default function LoginPage() {
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || data.message)
-      localStorage.setItem("token", data.token)
-      router.push("/dashboard")
+      persistAuthToken(data.token)
+      router.push(safeNextPath)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to verify OTP")
     } finally {
@@ -165,6 +222,22 @@ export default function LoginPage() {
                   </div>
                 </div>
 
+                {/* Forgot Password Button */}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    className="text-indigo-300 hover:text-indigo-200 text-xs font-medium mt-1 mb-2 transition-colors"
+                    onClick={() => {
+                      setStep("forgot")
+                      setForgotEmail(email)
+                      setError("")
+                      setForgotSent(false)
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+
                 {/* Error Message */}
                 {error && (
                   <motion.p className="text-red-400 text-sm flex items-center gap-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -183,6 +256,91 @@ export default function LoginPage() {
                     {!loading && <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" size={20} />}
                   </Button>
                 </motion.div>
+              </motion.div>
+            ) : step === "forgot" ? (
+              <motion.div className="space-y-4" initial={{ x: 20 }} animate={{ x: 0 }} transition={{ duration: 0.3 }}>
+                <h2 className="text-lg font-semibold text-white mb-2">Forgot Password</h2>
+                <p className="text-gray-300 text-sm mb-4">Enter your email to receive a password reset code.</p>
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={forgotEmail}
+                  onChange={e => setForgotEmail(e.target.value)}
+                  className="bg-indigo-900/30 border-indigo-700/50 text-white placeholder:text-gray-400 focus:bg-indigo-900/50 focus:border-indigo-500 transition-all"
+                  disabled={forgotSent}
+                />
+                {error && <motion.p className="text-red-400 text-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.p>}
+                {forgotSent ? (
+                  <>
+                    <p className="text-green-400 text-sm">Reset code sent! Check your email.</p>
+                    <Button
+                      onClick={() => setStep("reset")}
+                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold py-3 text-lg mt-2"
+                    >
+                      Enter Reset Code
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    onClick={handleForgotPassword}
+                    disabled={loading || !forgotEmail}
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold py-3 text-lg"
+                  >
+                    {loading ? "Sending..." : "Send Reset Code"}
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() => setStep("login")}
+                  className="w-full border-indigo-700 text-indigo-300 hover:bg-indigo-900/30 mt-2"
+                >
+                  Back to Login
+                </Button>
+              </motion.div>
+            ) : step === "reset" ? (
+              <motion.div className="space-y-4" initial={{ x: 20 }} animate={{ x: 0 }} transition={{ duration: 0.3 }}>
+                <h2 className="text-lg font-semibold text-white mb-2">Reset Password</h2>
+                <p className="text-gray-300 text-sm mb-4">Enter the code sent to your email and your new password.</p>
+                <Input
+                  id="reset-token"
+                  type="text"
+                  placeholder="Reset code"
+                  value={resetToken}
+                  onChange={e => setResetToken(e.target.value)}
+                  className="bg-indigo-900/30 border-indigo-700/50 text-white placeholder:text-gray-400 focus:bg-indigo-900/50 focus:border-indigo-500 transition-all"
+                />
+                <Input
+                  id="reset-password"
+                  type="password"
+                  placeholder="New password"
+                  value={resetPassword}
+                  onChange={e => setResetPassword(e.target.value)}
+                  className="bg-indigo-900/30 border-indigo-700/50 text-white placeholder:text-gray-400 focus:bg-indigo-900/50 focus:border-indigo-500 transition-all"
+                />
+                <Input
+                  id="reset-confirm"
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={resetConfirm}
+                  onChange={e => setResetConfirm(e.target.value)}
+                  className="bg-indigo-900/30 border-indigo-700/50 text-white placeholder:text-gray-400 focus:bg-indigo-900/50 focus:border-indigo-500 transition-all"
+                />
+                {error && <motion.p className="text-red-400 text-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.p>}
+                <Button
+                  onClick={handleResetPassword}
+                  disabled={loading || !resetToken || !resetPassword || !resetConfirm}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold py-3 text-lg"
+                >
+                  {loading ? "Resetting..." : "Reset Password"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setStep("login")}
+                  className="w-full border-indigo-700 text-indigo-300 hover:bg-indigo-900/30 mt-2"
+                >
+                  Back to Login
+                </Button>
               </motion.div>
             ) : (
               <motion.div className="space-y-4" initial={{ x: 20 }} animate={{ x: 0 }} transition={{ duration: 0.3 }}>
@@ -288,5 +446,17 @@ export default function LoginPage() {
         </motion.div>
       </motion.div>
     </main>
+  )
+}
+
+function LoginFallback() {
+  return <main className="min-h-screen bg-gradient-to-br from-blue-950 via-indigo-950 to-slate-950" />
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginPageContent />
+    </Suspense>
   )
 }

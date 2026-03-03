@@ -77,6 +77,11 @@ const habitTaskSchema = new mongoose.Schema(
           type: Number,
           default: 0,
         },
+        completed: {
+          type: Boolean,
+          default: false,
+        },
+        completedAt: Date,
       },
     ],
     // Distribute task across multiple days (empty = single day task)
@@ -92,6 +97,11 @@ const habitTaskSchema = new mongoose.Schema(
     proctoredMode: {
       type: Boolean,
       default: false,
+    },
+    proctoredPreset: {
+      type: String,
+      enum: ["quick", "deep"],
+      default: "quick",
     },
     // Proctored mode settings
     proctoredSettings: {
@@ -130,6 +140,19 @@ const habitTaskSchema = new mongoose.Schema(
         endedAt: Date,
         duration: Number, // minutes
         attachmentId: mongoose.Schema.Types.ObjectId,
+        proctoredPreset: {
+          type: String,
+          enum: ["quick", "deep"],
+          default: "quick",
+        },
+        proctoredSettingsSnapshot: {
+          disableCopyPaste: Boolean,
+          requireFullScreen: Boolean,
+          lockScreen: Boolean,
+          disableRightClick: Boolean,
+          trackActivity: Boolean,
+          timeLimit: Number,
+        },
         violations: [String], // e.g., ["left_fullscreen", "copy_paste_attempt"]
       },
     ],

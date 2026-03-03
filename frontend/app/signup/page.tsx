@@ -6,6 +6,7 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { persistAuthToken } from "@/lib/auth-cookie"
 import Link from "next/link"
 import { User, Mail, Zap, ArrowRight, Lock, Check, X } from "lucide-react"
 
@@ -78,7 +79,7 @@ export default function SignupPage() {
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.message)
-      localStorage.setItem("token", data.token)
+      persistAuthToken(data.token)
       router.push("/dashboard")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to verify OTP")

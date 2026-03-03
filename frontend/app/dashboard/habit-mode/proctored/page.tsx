@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { X, AlertTriangle, Maximize2, Eye, FileText, Bold, Italic, Underline, Camera, Download, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { mergeProctoredSettings, type ProctoredModePreset, type ProctoredSettings } from "@/lib/proctored-presets"
 import html2canvas from "html2canvas"
 
 type Attachment = {
@@ -14,23 +15,18 @@ type Attachment = {
   mimeType?: string
 }
 
-type ProctoredSettings = {
-  disableCopyPaste?: boolean
-  requireFullScreen?: boolean
-  lockScreen?: boolean
-  trackActivity?: boolean
-  timeLimit?: number
-}
-
 function ProctoredModePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const taskId = searchParams.get("taskId")
   const attachmentId = searchParams.get("attachmentId")
+  const modeParam = searchParams.get("mode")
+  const selectedPreset: ProctoredModePreset = modeParam === "deep" ? "deep" : "quick"
 
   const [attachment, setAttachment] = useState<Attachment | null>(null)
   const [proctoredSettings, setProctoredSettings] = useState<ProctoredSettings | null>(null)
   const [isFullScreen, setIsFullScreen] = useState(false)
+  const [needsF11Fallback, setNeedsF11Fallback] = useState(false)
   const [violations, setViolations] = useState<string[]>([])
   const [timeLeft, setTimeLeft] = useState<number>(0)
   const [loading, setLoading] = useState(true)
@@ -43,12 +39,14 @@ function ProctoredModePageContent() {
   const [pdfTotalPages, setPdfTotalPages] = useState(0)
   const [pdfCurrentPage, setPdfCurrentPage] = useState(1)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [activePreset, setActivePreset] = useState<ProctoredModePreset>(selectedPreset)
   const containerRef = useRef<HTMLDivElement>(null)
   const studyAreaRef = useRef<HTMLDivElement>(null)
   const notesEditorRef = useRef<HTMLDivElement>(null)
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null)
   const captureStreamRef = useRef<MediaStream | null>(null)
   const captureVideoRef = useRef<HTMLVideoElement | null>(null)
+
 
   const stopPersistentCaptureStream = useCallback(() => {
     if (captureStreamRef.current) {
@@ -143,32 +141,42 @@ function ProctoredModePageContent() {
       studyRect: DOMRect,
       selection: { x: number; y: number; width: number; height: number }
     ) => {
-      const video = await ensurePersistentCaptureVideo()
-      const scaleX = video.videoWidth / window.innerWidth
-      const scaleY = video.videoHeight / window.innerHeight
+      try {
+        const video = await ensurePersistentCaptureVideo()
+        const scaleX = video.videoWidth / window.innerWidth
+        const scaleY = video.videoHeight / window.innerHeight
 
-      const selectionLeft = studyRect.left + selection.x
-      const selectionTop = studyRect.top + selection.y
-      const sx = Math.max(0, Math.floor(selectionLeft * scaleX))
-      const sy = Math.max(0, Math.floor(selectionTop * scaleY))
-      const sw = Math.max(1, Math.min(video.videoWidth - sx, Math.floor(selection.width * scaleX)))
-      const sh = Math.max(1, Math.min(video.videoHeight - sy, Math.floor(selection.height * scaleY)))
+        const selectionLeft = studyRect.left + selection.x
+        const selectionTop = studyRect.top + selection.y
+        const sx = Math.max(0, Math.floor(selectionLeft * scaleX))
+        const sy = Math.max(0, Math.floor(selectionTop * scaleY))
+        const sw = Math.max(1, Math.min(video.videoWidth - sx, Math.floor(selection.width * scaleX)))
+        const sh = Math.max(1, Math.min(video.videoHeight - sy, Math.floor(selection.height * scaleY)))
 
-      const canvas = document.createElement("canvas")
-      canvas.width = sw
-      canvas.height = sh
+        const canvas = document.createElement("canvas")
+        canvas.width = sw
+        canvas.height = sh
 
-      const context = canvas.getContext("2d")
-      if (!context) {
-        throw new Error("Failed to create screenshot context")
+        const context = canvas.getContext("2d")
+        if (!context) {
+          throw new Error("Failed to create screenshot context")
+        }
+
+        context.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh)
+
+        if (proctoredSettings?.requireFullScreen && !document.fullscreenElement) {
+          setNeedsF11Fallback(true)
+        }
+
+        return canvas
+      } finally {
+        stopPersistentCaptureStream()
       }
-
-      context.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh)
-      return canvas
     },
-    [ensurePersistentCaptureVideo]
+    [ensurePersistentCaptureVideo, stopPersistentCaptureStream, proctoredSettings?.requireFullScreen]
   )
 
+  
   useEffect(() => {
     return () => {
       stopPersistentCaptureStream()
@@ -259,7 +267,12 @@ function ProctoredModePageContent() {
         const data = await response.json()
         console.log("Proctored data loaded:", data)
         
-        setProctoredSettings(data.task?.proctoredSettings || data.proctoredSettings)
+        const rawSettings = data.task?.proctoredSettings || data.proctoredSettings
+        const serverPreset = data.task?.proctoredPreset === "deep" ? "deep" : "quick"
+        const effectivePreset = (modeParam === "deep" || modeParam === "quick") ? selectedPreset : serverPreset
+        setActivePreset(effectivePreset)
+        const resolvedSettings = mergeProctoredSettings(rawSettings, effectivePreset)
+        setProctoredSettings(resolvedSettings)
 
         // Find the specific attachment
         if (attachmentId) {
@@ -275,7 +288,7 @@ function ProctoredModePageContent() {
         }
 
         // Set time limit timer if configured
-        const settings = data.task?.proctoredSettings || data.proctoredSettings
+        const settings = resolvedSettings
         if (settings?.timeLimit) {
           setTimeLeft(settings.timeLimit * 60) // Convert to seconds
         }
@@ -370,6 +383,9 @@ function ProctoredModePageContent() {
         (document as any).mozFullScreenElement !== null
 
       setIsFullScreen(isCurrentlyFullScreen)
+      if (isCurrentlyFullScreen) {
+        setNeedsF11Fallback(false)
+      }
 
       if (!isCurrentlyFullScreen && proctoredSettings?.requireFullScreen && !sessionEnded) {
         addViolation("left_fullscreen")
@@ -427,9 +443,9 @@ function ProctoredModePageContent() {
     }
   }, [proctoredSettings?.disableCopyPaste])
 
-  const requestFullScreen = async () => {
+  const requestFullScreen = useCallback(async () => {
     try {
-      const element = containerRef.current || document.documentElement
+      const element = document.documentElement
       if (element.requestFullscreen) {
         await element.requestFullscreen()
       } else if ((element as any).webkitRequestFullscreen) {
@@ -438,9 +454,71 @@ function ProctoredModePageContent() {
         await (element as any).mozRequestFullScreen()
       }
     } catch (error) {
+      setNeedsF11Fallback(true)
       console.error("Fullscreen request failed:", error)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!proctoredSettings?.requireFullScreen || isFullScreen || sessionEnded) return
+
+    let cancelled = false
+
+    const tryEnterFullscreen = async () => {
+      if (cancelled || document.fullscreenElement || sessionEnded) return
+      await requestFullScreen()
+      if (!document.fullscreenElement && !cancelled) {
+        setNeedsF11Fallback(true)
+      }
+    }
+
+    // Immediate attempt on mount/settings load
+    tryEnterFullscreen()
+
+    // Retry shortly after hydration/paint for browsers that need settled layout
+    const retryTimer = window.setTimeout(() => {
+      tryEnterFullscreen()
+    }, 250)
+
+    // Interaction fallback: keep trying on user interactions until fullscreen is entered
+    const handleFirstInteraction = () => {
+      tryEnterFullscreen()
+    }
+
+    window.addEventListener("pointerdown", handleFirstInteraction)
+    window.addEventListener("keydown", handleFirstInteraction)
+    window.addEventListener("touchstart", handleFirstInteraction)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(retryTimer)
+      window.removeEventListener("pointerdown", handleFirstInteraction)
+      window.removeEventListener("keydown", handleFirstInteraction)
+      window.removeEventListener("touchstart", handleFirstInteraction)
+    }
+  }, [proctoredSettings?.requireFullScreen, isFullScreen, sessionEnded, requestFullScreen])
+
+  useEffect(() => {
+    if (!proctoredSettings?.requireFullScreen || isFullScreen || sessionEnded) return
+
+    const retryOnFocus = () => {
+      requestFullScreen()
+    }
+
+    const retryOnVisibility = () => {
+      if (!document.hidden) {
+        requestFullScreen()
+      }
+    }
+
+    window.addEventListener("focus", retryOnFocus)
+    document.addEventListener("visibilitychange", retryOnVisibility)
+
+    return () => {
+      window.removeEventListener("focus", retryOnFocus)
+      document.removeEventListener("visibilitychange", retryOnVisibility)
+    }
+  }, [proctoredSettings?.requireFullScreen, isFullScreen, sessionEnded, requestFullScreen])
 
   const renderPdfPage = useCallback(async (pageNum: number) => {
     if (!pdfDoc || !pdfCanvasRef.current) return
@@ -613,7 +691,7 @@ function ProctoredModePageContent() {
       setNotesHtml(notesEditorRef.current?.innerHTML || "")
     } catch (error) {
       console.error("Screenshot capture failed:", error)
-      alert("Unable to capture this region. If prompted, allow screen capture once; it will be reused for later screenshots in this session.")
+      alert("Unable to capture this region. If prompted, allow screen capture for this screenshot.")
     }
   }
 
@@ -703,7 +781,7 @@ function ProctoredModePageContent() {
           <Eye className="w-5 h-5 text-cyan-400" />
           <div>
             <p className="text-xs text-slate-400">PROCTORED MODE</p>
-            <p className="text-sm font-semibold text-slate-100">{attachment.name}</p>
+            <p className="text-sm font-semibold text-slate-100">{attachment.name} · {activePreset === "deep" ? "Deep" : "Quick"}</p>
           </div>
         </div>
 
@@ -733,14 +811,22 @@ function ProctoredModePageContent() {
           </Button>
 
           {proctoredSettings?.requireFullScreen && !isFullScreen && (
-            <Button
-              size="sm"
-              onClick={requestFullScreen}
-              className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 text-cyan-300 gap-2"
-            >
-              <Maximize2 className="w-4 h-4" />
-              Fullscreen
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  setNeedsF11Fallback(false)
+                  requestFullScreen()
+                }}
+                className="bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 text-cyan-300 gap-2"
+              >
+                <Maximize2 className="w-4 h-4" />
+                {needsF11Fallback ? "Retry Fullscreen" : "Fullscreen"}
+              </Button>
+              {needsF11Fallback && (
+                <span className="text-xs text-amber-300">After permission dialog, press F11 again if fullscreen exits.</span>
+              )}
+            </div>
           )}
 
           {sessionEnded ? (
@@ -760,10 +846,10 @@ function ProctoredModePageContent() {
       </div>
 
       {/* Content + Notes layout */}
-      <div className="flex-1 overflow-hidden flex">
+      <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
         {/* Content area */}
-        <div className={`relative flex-1 overflow-auto p-4 flex items-center justify-center transition-all ${
-          showNotes ? "border-r border-white/10" : ""
+        <div className={`relative flex-1 overflow-auto p-2 md:p-4 flex items-center justify-center transition-all ${
+          showNotes ? "md:border-r border-white/10" : ""
         }`} ref={studyAreaRef}>
           {sessionEnded ? (
             <div className="text-center">
@@ -784,14 +870,14 @@ function ProctoredModePageContent() {
           ) : youtubeEmbedUrl ? (
             <iframe
               src={youtubeEmbedUrl}
-              className="w-full h-full border border-white/15 rounded"
+              className="w-full h-[220px] md:h-full border border-white/15 rounded"
               title={attachment.name}
               sandbox="allow-same-origin allow-scripts allow-presentation allow-popups"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
               allowFullScreen
             />
           ) : showPdfInline ? (
-            <div className="w-full h-full flex flex-col border border-white/15 rounded bg-white overflow-hidden">
+            <div className="w-full h-[220px] md:h-full flex flex-col border border-white/15 rounded bg-white overflow-hidden">
               {pdfLoading ? (
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-slate-500">Loading PDF...</div>
@@ -870,7 +956,7 @@ function ProctoredModePageContent() {
 
         {/* Notes panel */}
         {showNotes && (
-          <div className="w-80 bg-white/3 border-l border-white/15 backdrop-blur-xl flex flex-col overflow-hidden">
+          <div className="w-full md:w-80 bg-white/3 md:border-l border-white/15 backdrop-blur-xl flex flex-col overflow-hidden mt-4 md:mt-0">
             <div className="px-4 py-3 border-b border-white/10 bg-white/6">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-slate-400">NOTES & MEMO</p>

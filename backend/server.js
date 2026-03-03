@@ -1,4 +1,5 @@
 import express from "express"
+import { apiLimiter } from "./middleware/rateLimit.js"
 import mongoose from "mongoose"
 import dotenv from "dotenv"
 import cors from "cors"
@@ -9,6 +10,8 @@ import authRoutes from "./routes/auth.js"
 import userRoutes from "./routes/user.js"
 import habitRoutes from "./routes/habit.js"
 import planRoutes from "./routes/plan.js"
+import aiRoutes from "./routes/ai.js"
+import forgotRoutes from "./routes/forgot.js"
 import { errorHandler } from "./middleware/errorHandler.js"
 dotenv.config()
 
@@ -23,6 +26,8 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 // Middleware
+// Apply rate limiting to all API routes
+app.use("/api", apiLimiter)
 app.use(
   cors({
     origin: process.env.CORS_ORIGIN || "http://localhost:3000",
@@ -48,9 +53,11 @@ app.use(isVercel ? "/tmp/uploads" : "/uploads", express.static(uploadsDir))
 
 // Routes
 app.use("/api/auth", authRoutes)
+app.use("/api/forgot", forgotRoutes)
 app.use("/api/user", userRoutes)
 app.use("/api/habit", habitRoutes)
 app.use("/api/plan", planRoutes)
+app.use("/api/ai", aiRoutes)
 
 // Health check
 app.get("/api/health", (req, res) => {

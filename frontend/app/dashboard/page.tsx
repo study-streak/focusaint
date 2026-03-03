@@ -6,6 +6,7 @@ import { motion } from "framer-motion"
 import DashboardHeader from "@/components/dashboard/dashboard-header"
 import SessionTracker from "@/components/dashboard/session-tracker"
 import AnalyticsChart from "@/components/dashboard/analytics-chart"
+import { clearAuthToken } from "@/lib/auth-cookie"
 import { Flame, Clock, Target, TrendingUp, Zap } from "lucide-react"
 
 export default function DashboardPage() {
@@ -54,7 +55,7 @@ export default function DashboardPage() {
         setStats(statsData)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load dashboard")
-        localStorage.clear()
+        clearAuthToken()
         router.push('/')
       } finally {
         setLoading(false)

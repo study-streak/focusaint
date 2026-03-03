@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Sun, Moon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -8,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { AttachmentUpload } from "@/components/attachment-upload"
 import { APIClient } from "@/lib/api-client"
+import { PROCTORED_MODE_PRESETS, resolveProctoredPreset, type ProctoredModePreset, type ProctoredSettings } from "@/lib/proctored-presets"
 import { ChevronLeft, ChevronRight, Plus, Trash2, CheckCircle2, Circle, Flame, TrendingUp, Link as LinkIcon, FileText, Calendar, X } from "lucide-react"
 
 type Task = {
@@ -26,6 +28,8 @@ type Task = {
     name: string
     url: string
     uploadedAt: string
+    completed?: boolean
+    completedAt?: string
   }>
   distributedAcrossDays?: Array<{
     date: string
@@ -33,6 +37,8 @@ type Task = {
     completed: boolean
   }>
   proctoredMode?: boolean
+  proctoredPreset?: ProctoredModePreset
+  proctoredSettings?: ProctoredSettings
 }
 
 type ViewType = "daily" | "monthly"
@@ -49,7 +55,14 @@ type YoutubeRoutineDay = {
   }>
 }
 
-export default function HabitModePlannerPage() {
+export default function HabitModePage() {
+  // Theme state
+  const [theme, setTheme] = useState<'light' | 'dark'>(typeof window !== 'undefined' && window.localStorage.getItem('theme') === 'light' ? 'light' : 'dark')
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+    document.documentElement.classList.toggle('light', theme === 'light')
+    window.localStorage.setItem('theme', theme)
+  }, [theme])
   const router = useRouter()
   const [view, setView] = useState<ViewType>("daily")
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -77,6 +90,7 @@ export default function HabitModePlannerPage() {
   const [deadline, setDeadline] = useState("")
   const [showDeadlineModal, setShowDeadlineModal] = useState(false)
   const [proctoredMode, setProctoredMode] = useState(false)
+  const [proctoredPreset, setProctoredPreset] = useState<ProctoredModePreset>("quick")
   const [showDistributionModal, setShowDistributionModal] = useState(false)
   const [distributionDays, setDistributionDays] = useState<Array<{ date: string; portion: number }>>([{ date: "", portion: 50 }, { date: "", portion: 50 }])
   const [playlistUrlOrId, setPlaylistUrlOrId] = useState("")
@@ -309,10 +323,10 @@ export default function HabitModePlannerPage() {
           },
           body: JSON.stringify({
             deadline,
+            proctoredMode,
+            proctoredPreset: proctoredMode ? proctoredPreset : undefined,
             proctoredSettings: proctoredMode ? {
-              disableCopyPaste: true,
-              requireFullScreen: true,
-              trackActivity: true,
+              ...PROCTORED_MODE_PRESETS[proctoredPreset],
             } : undefined,
           }),
         }
@@ -336,8 +350,20 @@ export default function HabitModePlannerPage() {
     }
   }
 
-  const openAttachmentProctored = async (taskId: string, attachmentId: string) => {
+  const openAttachmentProctored = async (taskId: string, attachmentId: string, mode: ProctoredModePreset) => {
     try {
+      try {
+        const element = document.documentElement
+        if (element.requestFullscreen) {
+          await element.requestFullscreen()
+        } else if ((element as any).webkitRequestFullscreen) {
+          await (element as any).webkitRequestFullscreen()
+        } else if ((element as any).mozRequestFullScreen) {
+          await (element as any).mozRequestFullScreen()
+        }
+      } catch {
+      }
+
       const token = localStorage.getItem("token")
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/plan/task/${taskId}/proctored/start`,
@@ -347,14 +373,14 @@ export default function HabitModePlannerPage() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ attachmentId }),
+          body: JSON.stringify({ attachmentId, mode, proctoredPreset: mode }),
         }
       )
 
       if (!response.ok) throw new Error("Failed to start proctored session")
 
       // Redirect to proctored viewer
-      router.push(`/dashboard/habit-mode/proctored?taskId=${taskId}&attachmentId=${attachmentId}`)
+      router.push(`/dashboard/habit-mode/proctored?taskId=${taskId}&attachmentId=${attachmentId}&mode=${mode}`)
     } catch (error) {
       console.error("Failed to open attachment:", error)
     }
@@ -524,6 +550,18 @@ export default function HabitModePlannerPage() {
       </div>
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 flex flex-col min-h-[calc(100vh-16px)]">
+        {/* Theme toggle button */}
+        <div className="flex justify-end mb-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="border-white/15 text-white hover:bg-white/10"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </Button>
+        </div>
         {/* Header with back button and streak */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -719,7 +757,7 @@ export default function HabitModePlannerPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-5 gap-2 mb-2">
                 <Input
-                  placeholder="Playlist URL or ID"
+                  placeholder="Playlist or Video URL/ID"
                   value={playlistUrlOrId}
                   onChange={(e) => setPlaylistUrlOrId(e.target.value)}
                   className="bg-slate-900/45 border-white/15 text-slate-100 placeholder:text-slate-500 md:col-span-2"
@@ -752,19 +790,143 @@ export default function HabitModePlannerPage() {
 
               <div className="flex flex-wrap gap-2 mb-2">
                 <Button
-                  onClick={generateYoutubeRoutine}
+                  onClick={async () => {
+                    // Check if input is a YouTube video URL or ID
+                    const videoIdMatch = playlistUrlOrId.match(/(?:v=|\/embed\/|youtu\.be\/|\/v\/|^([\w-]{11})$)([\w-]{11})/)
+                    if (videoIdMatch) {
+                      // Single video: create a single task with link attachment
+                      setRoutineLoading(true)
+                      setRoutineError("")
+                      try {
+                        const token = localStorage.getItem("token")
+                        const assignedDate = routineStartDate
+                        // Get video title via YouTube oEmbed API
+                        let videoTitle = "YouTube Video"
+                        try {
+                          const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(playlistUrlOrId)}&format=json`)
+                          if (oembedRes.ok) {
+                            const oembedData = await oembedRes.json()
+                            if (oembedData.title) videoTitle = oembedData.title
+                          }
+                        } catch {}
+                        const response = await fetch(
+                          `${process.env.NEXT_PUBLIC_API_URL}/plan/task`,
+                          {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({
+                              title: "YouTube Video Task",
+                              description: playlistUrlOrId,
+                              duration: Number(routineDurationPerVideo),
+                              category: "other",
+                              assignedDate,
+                              monthYear: assignedDate.slice(0, 7),
+                              attachments: [
+                                {
+                                  type: "link",
+                                  name: videoTitle,
+                                  url: playlistUrlOrId,
+                                  uploadedAt: new Date().toISOString(),
+                                },
+                              ],
+                            }),
+                          }
+                        )
+                        if (!response.ok) throw new Error("Failed to create video task")
+                        setRoutineError("")
+                        setRoutineCreatedCount(1)
+                        if (view === "daily") {
+                          fetchDailyTasks()
+                        } else {
+                          fetchMonthlyTasks()
+                        }
+                      } catch (error) {
+                        setRoutineError(error instanceof Error ? error.message : "Failed to create video task")
+                      } finally {
+                        setRoutineLoading(false)
+                      }
+                    } else {
+                      // Playlist: keep original behavior
+                      generateYoutubeRoutine()
+                    }
+                  }}
                   disabled={routineLoading || !playlistUrlOrId.trim()}
                   className="bg-gradient-to-r from-violet-500 to-pink-500 border-0 h-9 text-sm"
                 >
-                  Generate Routine
+                  Generate Routine / Single Task
                 </Button>
                 <Button
-                  onClick={createRoutineTasks}
+                  onClick={async () => {
+                    // Check if input is a YouTube video URL or ID
+                    const videoIdMatch = playlistUrlOrId.match(/(?:v=|\/embed\/|youtu\.be\/|\/v\/|^([\w-]{11})$)([\w-]{11})/)
+                    if (videoIdMatch) {
+                      // Single video: create a single task with link attachment
+                      setRoutineLoading(true)
+                      setRoutineError("")
+                      try {
+                        const token = localStorage.getItem("token")
+                        const assignedDate = routineStartDate
+                        // Get video title via YouTube oEmbed API
+                        let videoTitle = "YouTube Video"
+                        try {
+                          const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(playlistUrlOrId)}&format=json`)
+                          if (oembedRes.ok) {
+                            const oembedData = await oembedRes.json()
+                            if (oembedData.title) videoTitle = oembedData.title
+                          }
+                        } catch {}
+                        const response = await fetch(
+                          `${process.env.NEXT_PUBLIC_API_URL}/plan/task`,
+                          {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({
+                              title: "YouTube Video Task",
+                              description: playlistUrlOrId,
+                              duration: Number(routineDurationPerVideo),
+                              category: "other",
+                              assignedDate,
+                              monthYear: assignedDate.slice(0, 7),
+                              attachments: [
+                                {
+                                  type: "link",
+                                  name: videoTitle,
+                                  url: playlistUrlOrId,
+                                  uploadedAt: new Date().toISOString(),
+                                },
+                              ],
+                            }),
+                          }
+                        )
+                        if (!response.ok) throw new Error("Failed to create video task")
+                        setRoutineError("")
+                        setRoutineCreatedCount(1)
+                        if (view === "daily") {
+                          fetchDailyTasks()
+                        } else {
+                          fetchMonthlyTasks()
+                        }
+                      } catch (error) {
+                        setRoutineError(error instanceof Error ? error.message : "Failed to create video task")
+                      } finally {
+                        setRoutineLoading(false)
+                      }
+                    } else {
+                      // Playlist: keep original behavior
+                      createRoutineTasks()
+                    }
+                  }}
                   disabled={routineLoading || !playlistUrlOrId.trim()}
                   variant="outline"
                   className="border-white/15 text-slate-100 hover:bg-white/10 h-9 text-sm"
                 >
-                  Create Tasks from Routine
+                  Create Tasks from Routine / Single Task
                 </Button>
               </div>
 
@@ -833,102 +995,125 @@ export default function HabitModePlannerPage() {
                       : "bg-white/6 border-white/15 hover:bg-white/10"
                   }`}
                 >
-                <div className="flex items-start gap-3">
-                  <button
-                    onClick={() => toggleTaskComplete(task._id, task.completed)}
-                    className="mt-0.5 flex-shrink-0 hover:opacity-80 transition-opacity"
-                  >
-                    {task.completed ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-400" />
-                    ) : (
-                      <Circle className="w-5 h-5 text-slate-400 hover:text-slate-300" />
-                    )}
-                  </button>
-
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-sm font-medium ${
-                        task.completed ? "text-slate-400 line-through" : "text-slate-100"
-                      }`}
+                  <div className="flex items-start gap-3">
+                    <button
+                      onClick={() => toggleTaskComplete(task._id, task.completed)}
+                      className="mt-0.5 flex-shrink-0 hover:opacity-80 transition-opacity"
                     >
-                      {task.title}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className={`text-xs px-2 py-0.5 rounded ${categoryColors[task.category as keyof typeof categoryColors]}`}>
-                        {task.category}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        {task.duration}m
-                      </span>
-                      {task.deadline && (
-                        <span className="text-xs flex items-center gap-1 text-cyan-400 px-2 py-0.5 rounded bg-cyan-500/10">
-                          <Calendar className="w-3 h-3" />
-                          {new Date(task.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        </span>
+                      {task.completed ? (
+                        <CheckCircle2 className="w-5 h-5 text-green-400" />
+                      ) : (
+                        <Circle className="w-5 h-5 text-slate-400 hover:text-slate-300" />
                       )}
-                      {task.attachments && task.attachments.length > 0 && (
-                        <span className="text-xs flex items-center gap-1 text-amber-400 px-2 py-0.5 rounded bg-amber-500/10">
-                          <FileText className="w-3 h-3" />
-                          {task.attachments.length}
+                    </button>
+
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className={`text-sm font-medium ${
+                          task.completed ? "text-slate-400 line-through" : "text-slate-100"
+                        }`}
+                      >
+                        {task.title}
+                      </p>
+                      {/* ...existing code... */}
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className={`text-xs px-2 py-0.5 rounded ${categoryColors[task.category as keyof typeof categoryColors]}`}>
+                          {task.category}
                         </span>
+                        <span className="text-xs text-slate-400">
+                          {task.duration}m
+                        </span>
+                        {task.deadline && (
+                          <span className="text-xs flex items-center gap-1 text-cyan-400 px-2 py-0.5 rounded bg-cyan-500/10">
+                            <Calendar className="w-3 h-3" />
+                            {new Date(task.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </span>
+                        )}
+                        {task.attachments && task.attachments.length > 0 && (
+                          <span className="text-xs flex items-center gap-1 text-amber-400 px-2 py-0.5 rounded bg-amber-500/10">
+                            <FileText className="w-3 h-3" />
+                            {task.attachments.length}
+                          </span>
+                        )}
+                      </div>
+
+                      {task.attachments && task.attachments.length > 0 && (
+                        <div className="mt-1.5 flex gap-1 flex-wrap">
+                          {task.attachments.map((attachment) => (
+                            <div key={attachment._id} className="flex items-center gap-1">
+                              <input
+                                type="checkbox"
+                                checked={!!attachment.completed}
+                                onChange={async (e) => {
+                                  const token = localStorage.getItem("token")
+                                  await fetch(
+                                    `${process.env.NEXT_PUBLIC_API_URL}/plan/task/${task._id}/attachment/${attachment._id}/${e.target.checked ? "complete" : "uncomplete"}`,
+                                    {
+                                      method: "PATCH",
+                                      headers: { Authorization: `Bearer ${token}` },
+                                    }
+                                  )
+                                  if (view === "daily") {
+                                    fetchDailyTasks()
+                                  } else {
+                                    fetchMonthlyTasks()
+                                  }
+                                }}
+                                className="w-4 h-4 accent-green-500"
+                              />
+                              <button
+                                onClick={() => openAttachmentProctored(task._id, attachment._id, task.proctoredPreset || resolveProctoredPreset(task.proctoredSettings))}
+                                className={`text-xs px-2 py-1 rounded flex items-center gap-1 transition-colors ${attachment.completed ? "bg-green-500/20 text-green-200" : "bg-purple-500/20 text-purple-200 hover:bg-purple-500/30"}`}
+                              >
+                                {attachment.type === "link" ? (
+                                  <LinkIcon className="w-3 h-3" />
+                                ) : (
+                                  <FileText className="w-3 h-3" />
+                                )}
+                                {attachment.name}
+                                {attachment.completed && <CheckCircle2 className="w-4 h-4 text-green-400 ml-1" />}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
 
-                    {task.attachments && task.attachments.length > 0 && (
-                      <div className="mt-1.5 flex gap-1 flex-wrap">
-                        {task.attachments.slice(0, 3).map((attachment) => (
-                          <button
-                            key={attachment._id}
-                            onClick={() => openAttachmentProctored(task._id, attachment._id)}
-                            className="text-xs px-2 py-1 rounded bg-purple-500/20 text-purple-200 hover:bg-purple-500/30 transition-colors flex items-center gap-1"
-                          >
-                            {attachment.type === "link" ? (
-                              <LinkIcon className="w-3 h-3" />
-                            ) : (
-                              <FileText className="w-3 h-3" />
-                            )}
-                            {attachment.name}
-                          </button>
-                        ))}
-                        {task.attachments.length > 3 && (
-                          <span className="text-xs px-2 py-1 text-slate-400">+{task.attachments.length - 3}</span>
-                        )}
-                      </div>
-                    )}
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => {
+                          setSelectedTask(task)
+                          setDeadline(task.deadline || "")
+                          const isTaskProctored = Boolean(task.proctoredMode || task.proctoredSettings?.requireFullScreen || task.proctoredSettings?.disableCopyPaste)
+                          setProctoredMode(isTaskProctored)
+                          setProctoredPreset(task.proctoredPreset || resolveProctoredPreset(task.proctoredSettings))
+                          setShowDeadlineModal(true)
+                        }}
+                        className="p-1 hover:bg-cyan-500/20 rounded opacity-40 hover:opacity-100 transition-all"
+                        title="Set deadline"
+                      >
+                        <Calendar className="w-4 h-4 text-cyan-400" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedTask(task)
+                          setDistributionDays(task.distributedAcrossDays?.map(d => ({ date: d.date, portion: d.portion })) || [{ date: "", portion: 50 }, { date: "", portion: 50 }])
+                          setShowDistributionModal(true)
+                        }}
+                        className="p-1 hover:bg-purple-500/20 rounded opacity-40 hover:opacity-100 transition-all"
+                        title="Distribute across days"
+                      >
+                        <Plus className="w-4 h-4 text-purple-400" />
+                      </button>
+                      <button
+                        onClick={() => deleteTask(task._id)}
+                        className="p-1 hover:bg-red-500/20 rounded opacity-40 hover:opacity-100 transition-all"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-400" />
+                      </button>
+                    </div>
                   </div>
-
-                  <div className="flex gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => {
-                        setSelectedTask(task)
-                        setDeadline(task.deadline || "")
-                        setShowDeadlineModal(true)
-                      }}
-                      className="p-1 hover:bg-cyan-500/20 rounded opacity-40 hover:opacity-100 transition-all"
-                      title="Set deadline"
-                    >
-                      <Calendar className="w-4 h-4 text-cyan-400" />
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedTask(task)
-                        setDistributionDays(task.distributedAcrossDays?.map(d => ({ date: d.date, portion: d.portion })) || [{ date: "", portion: 50 }, { date: "", portion: 50 }])
-                        setShowDistributionModal(true)
-                      }}
-                      className="p-1 hover:bg-purple-500/20 rounded opacity-40 hover:opacity-100 transition-all"
-                      title="Distribute across days"
-                    >
-                      <Plus className="w-4 h-4 text-purple-400" />
-                    </button>
-                    <button
-                      onClick={() => deleteTask(task._id)}
-                      className="p-1 hover:bg-red-500/20 rounded opacity-40 hover:opacity-100 transition-all"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-400" />
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
+                </motion.div>
               ))
             )}
           </div>
@@ -971,6 +1156,36 @@ export default function HabitModePlannerPage() {
                   <span className="text-slate-400">Disable copy/paste and require fullscreen</span>
                 </label>
               </div>
+
+              {proctoredMode && (
+                <div className="p-3 rounded bg-white/6 border border-white/10">
+                  <p className="text-xs text-slate-400 mb-2 font-semibold">PROCTORED PRESET</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setProctoredPreset("quick")}
+                      className={`text-xs rounded px-3 py-2 border transition-colors ${
+                        proctoredPreset === "quick"
+                          ? "bg-cyan-500/20 border-cyan-400/60 text-cyan-200"
+                          : "bg-slate-900/45 border-white/15 text-slate-300 hover:bg-slate-800"
+                      }`}
+                    >
+                      Quick
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProctoredPreset("deep")}
+                      className={`text-xs rounded px-3 py-2 border transition-colors ${
+                        proctoredPreset === "deep"
+                          ? "bg-cyan-500/20 border-cyan-400/60 text-cyan-200"
+                          : "bg-slate-900/45 border-white/15 text-slate-300 hover:bg-slate-800"
+                      }`}
+                    >
+                      Deep
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Attachments section */}
               <div>
@@ -1036,6 +1251,7 @@ export default function HabitModePlannerPage() {
                     setSelectedTask(null)
                     setDeadline("")
                     setProctoredMode(false)
+                    setProctoredPreset("quick")
                   }}
                   className="border-white/15 flex-1 h-9"
                 >

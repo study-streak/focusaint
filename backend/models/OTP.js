@@ -16,6 +16,12 @@ const otpSchema = new mongoose.Schema(
       required: true,
       index: { expires: 0 }, // Auto-delete after expiry
     },
+    type: {
+      type: String,
+      enum: ["reset", "signup"],
+      default: "signup",
+      index: true,
+    },
     attempts: {
       type: Number,
       default: 0,
