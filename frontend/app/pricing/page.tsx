@@ -16,7 +16,14 @@ export default function PricingPage() {
     setLoading(plan)
     try {
       const session = await createCheckoutSession(plan)
-      redirectToCheckout(session.url)
+      if (session.paymentStatus === 'redirect' && session.checkout_url) {
+        redirectToCheckout(session.checkout_url)
+      } else if (session.paymentStatus === 'not_required') {
+        // Free plan or already subscribed, reload or show success
+        router.push('/dashboard?subscription=success')
+      } else {
+        alert(session.message || 'Unknown subscription response.')
+      }
     } catch (error) {
       console.error('Failed to create checkout session:', error)
       alert('Failed to start checkout. Please try again.')

@@ -323,9 +323,6 @@ export class ExternalServiceError extends AppError {
     this.originalError = originalError
   }
 
-  static stripe(message, originalError) {
-    return new ExternalServiceError('Stripe', message, originalError)
-  }
 
   static gemini(message, originalError) {
     return new ExternalServiceError('Gemini AI', message, originalError)

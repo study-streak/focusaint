@@ -1,51 +1,79 @@
-import Stripe from 'stripe';
+// Dodo Payments Webhook Handler
+// Add this endpoint to your routes: router.post('/webhook/dodo', express.json(), handleDodoWebhook)
+export const handleDodoWebhook = async (req, res) => {
+  try {
+    const event = req.body;
+    const { type, data } = event;
+    if (!type || !data) {
+      return res.status(400).json({ error: 'Invalid webhook payload' });
+    }
+
+    // Find subscription by Dodo subscription ID (assuming you store it in your Subscription model)
+    const dodoSubscriptionId = data.subscription_id;
+    if (!dodoSubscriptionId) {
+      return res.status(400).json({ error: 'No subscription_id in webhook data' });
+    }
+    const subscription = await Subscription.findOne({ dodoSubscriptionId });
+    if (!subscription) {
+      // Optionally, create a new subscription record if not found
+      return res.status(404).json({ error: 'Subscription not found' });
+    }
+
+    // Handle event types
+    switch (type) {
+      case 'subscription.active':
+        subscription.status = 'active';
+        break;
+      case 'subscription.updated':
+        // Update fields as needed
+        subscription.status = data.status || subscription.status;
+        break;
+      case 'subscription.on_hold':
+        subscription.status = 'on_hold';
+        break;
+      case 'subscription.failed':
+        subscription.status = 'failed';
+        break;
+      case 'subscription.renewed':
+        subscription.status = 'active';
+        break;
+      default:
+        // Ignore unhandled event types
+        break;
+    }
+    await subscription.save();
+    res.json({ received: true });
+  } catch (error) {
+    console.error('Dodo Payments webhook error:', error);
+    res.status(500).json({ error: 'Webhook handler error' });
+  }
+};
 import User from '../models/User.js';
 import Subscription from '../models/Subscription.js';
+import fetch from 'node-fetch';
 
-// Initialize Stripe only if API key is configured
-let stripe = null;
-if (process.env.STRIPE_SECRET_KEY) {
-  stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-} else {
-  console.warn('⚠ Stripe API key not configured - subscription features disabled');
-}
 
-/**
- * Create a subscription directly (without checkout session)
- * This creates a Stripe subscription and updates the user's tier immediately
- */
+// Create a subscription (Dodo Payments or free)
 export const createSubscription = async (req, res) => {
   try {
-    // Check if Stripe is configured
-    if (!stripe) {
-      return res.status(503).json({ 
-        error: 'Payment processing is not configured. Please contact support.' 
-      });
-    }
-    
-    const { priceId, plan } = req.body;
-    
-    // Validate required fields
-    if (!priceId || !plan) {
-      return res.status(400).json({ error: 'priceId and plan are required' });
-    }
-    
+    const { plan } = req.body;
     // Validate plan
-    if (!['premium_monthly', 'premium_yearly'].includes(plan)) {
-      return res.status(400).json({ error: 'Invalid plan. Must be premium_monthly or premium_yearly' });
+    if (!plan) {
+      return res.status(400).json({ error: 'Plan is required' });
     }
-    
+    // Only allow known plans
+    if (!['premium_monthly', 'premium_yearly', 'free'].includes(plan)) {
+      return res.status(400).json({ error: 'Invalid plan.' });
+    }
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
     // Check if user already has an active subscription
     const existingSubscription = await Subscription.findOne({ 
       userId: user._id,
       status: { $in: ['active', 'trialing'] }
     });
-    
     if (existingSubscription) {
       return res.status(400).json({ 
         error: 'You already have an active subscription',
@@ -56,77 +84,78 @@ export const createSubscription = async (req, res) => {
         }
       });
     }
-    
-    // Create or retrieve Stripe customer
-    let customerId = user.stripeCustomerId;
-    
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: {
-          userId: user._id.toString()
-        }
+
+    // If free plan, create subscription directly
+    if (plan === 'free') {
+      const subscription = await Subscription.create({
+        userId: user._id,
+        plan,
+        status: 'active',
+        currentPeriodStart: new Date(),
+        currentPeriodEnd: null
       });
-      customerId = customer.id;
-      
-      // Save customer ID to user
-      user.stripeCustomerId = customerId;
+      user.tier = 'free';
       await user.save();
+      return res.status(201).json({
+        message: 'Free subscription created successfully',
+        subscription: {
+          id: subscription._id,
+          plan: subscription.plan,
+          status: subscription.status,
+          currentPeriodStart: subscription.currentPeriodStart,
+          currentPeriodEnd: subscription.currentPeriodEnd
+        },
+        user: {
+          tier: user.tier
+        },
+        paymentStatus: 'not_required'
+      });
     }
-    
-    // Create Stripe subscription
-    const stripeSubscription = await stripe.subscriptions.create({
-      customer: customerId,
-      items: [{ price: priceId }],
-      metadata: {
-        userId: user._id.toString(),
-        plan
-      }
-    });
-    
-    // Save subscription to database
-    const subscription = await Subscription.create({
-      userId: user._id,
-      stripeCustomerId: customerId,
-      stripeSubscriptionId: stripeSubscription.id,
-      stripePriceId: priceId,
-      plan,
-      status: stripeSubscription.status,
-      currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
-      trialStart: stripeSubscription.trial_start ? new Date(stripeSubscription.trial_start * 1000) : null,
-      trialEnd: stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000) : null
-    });
-    
-    // Update user tier to premium
-    user.tier = 'premium';
-    await user.save();
-    
-    res.status(201).json({
-      message: 'Subscription created successfully',
-      subscription: {
-        id: subscription._id,
-        plan: subscription.plan,
-        status: subscription.status,
-        currentPeriodStart: subscription.currentPeriodStart,
-        currentPeriodEnd: subscription.currentPeriodEnd
+
+    // Dodo Payments: create checkout session for premium plans
+    // Map plan to Dodo Payments product_id
+    const productMap = {
+      premium_monthly: 'prod_subscription_monthly',
+      premium_yearly: 'prod_subscription_yearly'
+    };
+    const product_id = productMap[plan];
+    if (!product_id) {
+      return res.status(400).json({ error: 'Invalid plan mapping.' });
+    }
+
+    // Call Dodo Payments API to create checkout session
+    const dodoRes = await fetch('https://test.dodopayments.com/checkouts', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.DODO_PAYMENTS_API_KEY}`
       },
-      user: {
-        tier: user.tier
-      }
+      body: JSON.stringify({
+        product_cart: [
+          { product_id, quantity: 1 }
+        ],
+        // Optionally add trial days or other subscription_data
+        customer: {
+          email: user.email,
+          name: user.name || user.email
+        },
+        return_url: `${process.env.FRONTEND_URL}/subscription/success`
+      })
     });
-    
+
+    if (!dodoRes.ok) {
+      const errText = await dodoRes.text();
+      throw new Error(`Dodo Payments error: ${errText}`);
+    }
+    const session = await dodoRes.json();
+    // Return checkout_url to frontend for redirect
+    return res.status(200).json({
+      checkout_url: session.checkout_url,
+      paymentStatus: 'redirect',
+      message: 'Redirect to Dodo Payments checkout.'
+    });
   } catch (error) {
     console.error('Create subscription error:', error);
-    
-    // Handle Stripe-specific errors
-    if (error.type === 'StripeCardError') {
-      return res.status(400).json({ error: 'Payment failed: ' + error.message });
-    }
-    if (error.type === 'StripeInvalidRequestError') {
-      return res.status(400).json({ error: 'Invalid request: ' + error.message });
-    }
-    
     res.status(500).json({ error: 'Failed to create subscription' });
   }
 };

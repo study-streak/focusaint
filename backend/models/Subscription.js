@@ -8,18 +8,14 @@ const subscriptionSchema = new mongoose.Schema({
     unique: true
   },
   
-  // Stripe integration
-  stripeCustomerId: {
+  // Dodo Payments integration (optional)
+  dodoPaymentId: {
     type: String,
-    required: true
+    default: null
   },
-  stripeSubscriptionId: {
+  dodoSubscriptionId: {
     type: String,
-    required: true
-  },
-  stripePriceId: {
-    type: String,
-    required: true
+    default: null
   },
   
   // Plan details
@@ -76,7 +72,6 @@ const subscriptionSchema = new mongoose.Schema({
 
 // Indexes
 subscriptionSchema.index({ userId: 1 });
-subscriptionSchema.index({ stripeCustomerId: 1 });
 subscriptionSchema.index({ status: 1, currentPeriodEnd: 1 });
 
 const Subscription = mongoose.model('Subscription', subscriptionSchema);

@@ -53,10 +53,7 @@ const userSchema = new mongoose.Schema(
       default: "free",
       alias: "tier", // Allow using 'tier' as an alias
     },
-    stripeCustomerId: {
-      type: String,
-      default: null,
-    },
+    // StripeCustomerId removed. Add DodoPayments fields here if needed.
     isEmailVerified: {
       type: Boolean,
       default: false,

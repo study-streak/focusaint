@@ -31,7 +31,7 @@
     "rate-limit-redis": "^4.3.1",
     "react": "^19.2.4",
     "redis": "^5.11.0",
-    "stripe": "^20.4.0",
+    
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0"
   },

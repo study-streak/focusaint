@@ -113,16 +113,6 @@ const ENV_SCHEMA = {
   },
 
   // Optional: External Services (for future features)
-  STRIPE_SECRET_KEY: {
-    required: false,
-    type: 'string',
-    description: 'Stripe API secret key for payment processing'
-  },
-  STRIPE_WEBHOOK_SECRET: {
-    required: false,
-    type: 'string',
-    description: 'Stripe webhook signing secret'
-  },
   GEMINI_API_KEY: {
     required: false,
     type: 'string',

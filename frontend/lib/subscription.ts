@@ -15,11 +15,16 @@ export interface CheckoutSession {
 }
 
 /**
- * Create a Stripe checkout session
+ * Create a Dodo Payments checkout session or free subscription
  */
-export async function createCheckoutSession(plan: 'monthly' | 'yearly'): Promise<CheckoutSession> {
-  const response = await APIClient.post<CheckoutSession>('/subscription/create-checkout-session', {
-    plan
+export async function createCheckoutSession(plan: 'monthly' | 'yearly' | 'free'): Promise<{ checkout_url?: string; paymentStatus: string; message: string }> {
+  // Map plan to backend plan
+  let backendPlan: 'premium_monthly' | 'premium_yearly' | 'free';
+  if (plan === 'monthly') backendPlan = 'premium_monthly';
+  else if (plan === 'yearly') backendPlan = 'premium_yearly';
+  else backendPlan = 'free';
+  const response = await APIClient.post<{ checkout_url?: string; paymentStatus: string; message: string }>('/subscription/create', {
+    plan: backendPlan
   });
   return response;
 }
@@ -59,7 +64,7 @@ export async function changeSubscriptionPlan(newPlan: 'premium_monthly' | 'premi
 }
 
 /**
- * Redirect to Stripe checkout
+ * Redirect to Dodo Payments checkout
  */
 export function redirectToCheckout(checkoutUrl: string) {
   window.location.href = checkoutUrl;

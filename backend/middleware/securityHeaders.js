@@ -53,11 +53,9 @@ export const securityHeaders = helmet({
       connectSrc: [
         "'self'",
         process.env.CORS_ORIGIN || "http://localhost:3000",
-        "https://api.stripe.com", // For Stripe integration
       ],
       frameSrc: [
         "'self'",
-        "https://js.stripe.com", // For Stripe checkout
       ],
       objectSrc: ["'none'"],
       upgradeInsecureRequests: process.env.NODE_ENV === "production" ? [] : null,
