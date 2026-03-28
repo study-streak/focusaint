@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { motion } from "framer-motion"
 import { TrendingUp } from "lucide-react"
+import HistoryDateRangeIndicator from "./history-date-range-indicator"
 
 export default function AnalyticsChart({ stats }: { stats: any }) {
   const fallbackData = [
@@ -23,6 +24,10 @@ export default function AnalyticsChart({ stats }: { stats: any }) {
 
   const colors = ["#ec4899", "#a855f7", "#3b82f6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444"]
   const maxValue = Math.max(...data.map((d: any) => d.sessions), 1)
+
+  const handleUpgradeClick = () => {
+    window.location.href = "/pricing"
+  }
 
   return (
     <motion.div
@@ -48,6 +53,13 @@ export default function AnalyticsChart({ stats }: { stats: any }) {
             >
               <TrendingUp size={22} className="text-white drop-shadow-lg" />
             </motion.div>
+          </div>
+          <div className="mt-3">
+            <HistoryDateRangeIndicator 
+              variant="badge" 
+              showUpgradeLink={true}
+              onUpgradeClick={handleUpgradeClick}
+            />
           </div>
         </CardHeader>
 

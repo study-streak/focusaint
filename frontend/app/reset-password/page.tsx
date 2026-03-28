@@ -31,7 +31,7 @@ function ResetPasswordContent() {
     setError("");
     try {
       if (password !== confirm) throw new Error("Passwords do not match");
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/forgot/reset-password-token`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, newPassword: password }),

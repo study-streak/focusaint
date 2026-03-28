@@ -328,6 +328,7 @@ function ProctoredModePageContent() {
 
     try {
       const token = localStorage.getItem("token")
+      // 1. End proctored session
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/plan/task/${taskId}/proctored/end`,
         {
@@ -345,13 +346,33 @@ function ProctoredModePageContent() {
 
       if (!response.ok) throw new Error("Failed to end session")
 
+      // 2. Mark attachment as complete (triggers streak update if all complete)
+      if (taskId && attachmentId) {
+        await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/plan/task/${taskId}/attachment/${attachmentId}/complete`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        )
+      }
+
       stopPersistentCaptureStream()
 
-      console.log("Session ended successfully")
+      console.log("Session ended and attachment marked complete")
       // Show completion message and redirect after 3 seconds
       setTimeout(() => {
-        router.push("/dashboard/habit-mode")
+        router.replace("/dashboard/habit-mode")
       }, 3000)
+      // Guard: If session ended, redirect to habit mode
+      useEffect(() => {
+        if (sessionEnded) {
+          router.replace("/dashboard/habit-mode");
+        }
+      }, [sessionEnded, router]);
     } catch (error) {
       console.error("Failed to end proctored session:", error)
     }

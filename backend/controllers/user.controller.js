@@ -76,5 +76,73 @@ async function updateUserProfile(req, res) {
     res.status(500).json({ error: "Failed to update profile" })
   }
 }
-const userController = {getUserDashboard,getUserProfile,updateUserProfile}
+
+async function getNotificationPreferences(req, res) {
+  try {
+    await connectToMongo()
+
+    const user = await User.findById(req.user.userId).select("notificationPreferences")
+    if (!user) {
+      return res.status(404).json({ error: "User not found" })
+    }
+
+    res.json({
+      preferences: user.notificationPreferences || {
+        browserPermission: 'default',
+        enabled: false,
+        lastPromptedAt: null,
+      },
+    })
+  } catch (error) {
+    console.error("Get notification preferences error:", error)
+    res.status(500).json({ error: "Failed to fetch notification preferences" })
+  }
+}
+
+async function updateNotificationPreferences(req, res) {
+  try {
+    await connectToMongo()
+
+    const { browserPermission, enabled, lastPromptedAt } = req.body
+
+    // Validate browserPermission if provided
+    const validPermissions = ['granted', 'denied', 'default', 'unsupported']
+    if (browserPermission && !validPermissions.includes(browserPermission)) {
+      return res.status(400).json({ error: "Invalid browser permission value" })
+    }
+
+    const updateData = {}
+    if (browserPermission !== undefined) {
+      updateData['notificationPreferences.browserPermission'] = browserPermission
+    }
+    if (enabled !== undefined) {
+      updateData['notificationPreferences.enabled'] = enabled
+    }
+    if (lastPromptedAt !== undefined) {
+      updateData['notificationPreferences.lastPromptedAt'] = lastPromptedAt
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { $set: updateData },
+      { new: true }
+    ).select("notificationPreferences")
+
+    res.json({
+      message: "Notification preferences updated successfully",
+      preferences: user.notificationPreferences,
+    })
+  } catch (error) {
+    console.error("Update notification preferences error:", error)
+    res.status(500).json({ error: "Failed to update notification preferences" })
+  }
+}
+
+const userController = {
+  getUserDashboard,
+  getUserProfile,
+  updateUserProfile,
+  getNotificationPreferences,
+  updateNotificationPreferences,
+}
 export default userController;

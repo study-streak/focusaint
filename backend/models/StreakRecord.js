@@ -43,4 +43,9 @@ const streakRecordSchema = new mongoose.Schema(
   { timestamps: true },
 )
 
+// Indexes for performance optimization
+streakRecordSchema.index({ userId: 1 }, { unique: true })
+streakRecordSchema.index({ currentStreak: -1 })
+streakRecordSchema.index({ lastActiveDate: -1 })
+
 export default mongoose.model("StreakRecord", streakRecordSchema)

@@ -6,6 +6,8 @@ import { motion } from "framer-motion"
 import DashboardHeader from "@/components/dashboard/dashboard-header"
 import SessionTracker from "@/components/dashboard/session-tracker"
 import AnalyticsChart from "@/components/dashboard/analytics-chart"
+import TokenUsageIndicator from "@/components/dashboard/token-usage-indicator"
+import { NotificationPermissionBanner } from "@/components/notifications"
 import { clearAuthToken } from "@/lib/auth-cookie"
 import { Flame, Clock, Target, TrendingUp, Zap } from "lucide-react"
 
@@ -52,6 +54,7 @@ export default function DashboardPage() {
         if (!statsRes.ok) throw new Error("Failed to fetch stats")
 
         const statsData = await statsRes.json()
+        console.log(statsData);
         setStats(statsData)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load dashboard")
@@ -158,6 +161,8 @@ export default function DashboardPage() {
       <DashboardHeader user={user} stats={stats} />
 
       <div className="max-w-[1500px] mx-auto px-3 md:px-6 py-3 md:py-4 space-y-4 relative z-10 pb-6">
+        {/* Notification Permission Banner */}
+        <NotificationPermissionBanner />
 
         {/* Stats Grid */}
         <motion.div
@@ -218,7 +223,11 @@ export default function DashboardPage() {
             <AnalyticsChart stats={stats} />
           </motion.div>
 
-          <motion.div variants={itemVariants} className="xl:col-span-2">
+          <motion.div variants={itemVariants} className="xl:col-span-2 space-y-4">
+            <TokenUsageIndicator 
+              showUpgradePrompt={true}
+              onUpgradeClick={() => router.push('/pricing')}
+            />
             <SessionTracker user={user} />
           </motion.div>
         </motion.div>

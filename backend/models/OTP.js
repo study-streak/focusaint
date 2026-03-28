@@ -20,7 +20,6 @@ const otpSchema = new mongoose.Schema(
       type: String,
       enum: ["reset", "signup"],
       default: "signup",
-      index: true,
     },
     attempts: {
       type: Number,

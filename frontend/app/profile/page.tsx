@@ -81,6 +81,7 @@ export default function ProfilePage() {
       <DashboardHeader user={user} />
 
       <div className="max-w-2xl mx-auto p-6 space-y-6">
+        {/* Profile Settings */}
         <Card className="border-2 border-accent/20">
           <CardHeader>
             <CardTitle>Profile Settings</CardTitle>

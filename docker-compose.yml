@@ -41,9 +41,13 @@ services:
       EMAIL_SERVICE: ${EMAIL_SERVICE:-gmail}
       EMAIL_USER: ${EMAIL_USER:-sujalgoel19@gmail.com}
       EMAIL_PASSWORD: ${EMAIL_PASSWORD:-yrco yakh ncoa owjq}
+      REDIS_URL: redis://redis:6379
+      SENTRY_DSN: ${SENTRY_DSN:-https://dfa6e493b6ed69a6c54e061b5a2bebdd@o4510987222253568.ingest.us.sentry.io/4510987230445568}
     depends_on:
       mongodb:
         condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - focusdle-network
     healthcheck:
@@ -77,6 +81,16 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # Redis Service
+  redis:
+    image: redis:7.2-alpine
+    container_name: focusdle-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - focusdle-network
 
 volumes:
   mongodb_data:

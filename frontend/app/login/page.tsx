@@ -25,7 +25,7 @@ function LoginPageContent() {
       setLoading(true)
       setError("")
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/forgot/forgot-password`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/forgot-password`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: forgotEmail }),
@@ -46,7 +46,7 @@ function LoginPageContent() {
       setError("")
       try {
         if (resetPassword !== resetConfirm) throw new Error("Passwords do not match")
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/forgot/reset-password-token`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/reset-password`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: forgotEmail, token: resetToken, newPassword: resetPassword }),

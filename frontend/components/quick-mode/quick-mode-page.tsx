@@ -12,6 +12,9 @@ import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { extractYouTubeVideoId, toYouTubeEmbedUrl } from '@/lib/quick-mode'
+import DashboardHeader from '@/components/dashboard/dashboard-header'
+import TokenUsageIndicator from '@/components/dashboard/token-usage-indicator'
+import TokenLimitModal from '@/components/dashboard/token-limit-modal'
 
 type QuickModePageProps = {
   initialUrl?: string
@@ -40,6 +43,9 @@ const initialStudyPack: StudyPack = {
 
 export default function QuickModePage({ initialUrl = "" }: QuickModePageProps) {
   // Theme state
+  // Dummy user and stats for header (replace with real data if available)
+  const user = { name: "User" };
+  const stats = { currentStreak: 0 };
   const [theme, setTheme] = useState<'light' | 'dark'>(typeof window !== 'undefined' && window.localStorage.getItem('theme') === 'light' ? 'light' : 'dark')
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -64,6 +70,12 @@ export default function QuickModePage({ initialUrl = "" }: QuickModePageProps) {
   const [aiError, setAiError] = useState('')
   const [codeInput, setCodeInput] = useState('')
   const [terminalInput, setTerminalInput] = useState('npm run build')
+  const [showTokenLimitModal, setShowTokenLimitModal] = useState(false)
+  const [tokenLimitData, setTokenLimitData] = useState<{
+    used: number
+    limit: number
+    resetAt: string
+  } | null>(null)
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -122,6 +134,15 @@ export default function QuickModePage({ initialUrl = "" }: QuickModePageProps) {
 
       const data = await response.json()
       if (!response.ok) {
+        // Check if it's a token limit error
+        if (data?.error === 'TOKEN_LIMIT_EXCEEDED' && data?.details) {
+          setTokenLimitData({
+            used: data.details.used || 0,
+            limit: data.details.limit || 0,
+            resetAt: data.details.resetAt || new Date().toISOString(),
+          })
+          setShowTokenLimitModal(true)
+        }
         throw new Error(data?.error || data?.message || 'AI request failed')
       }
 
@@ -263,7 +284,14 @@ export default function QuickModePage({ initialUrl = "" }: QuickModePageProps) {
       setChatHistory((prev) => [...prev, { role: 'assistant', content: reply }])
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to send message right now.'
-      setAiError(message)
+      
+      // Check if it's a token limit error
+      if (message.includes('TOKEN_LIMIT_EXCEEDED') || message.includes('token limit')) {
+        setAiError('Daily AI token limit reached. Resets at midnight UTC. Upgrade to premium for extended limits.')
+      } else {
+        setAiError(message)
+      }
+      
       setChatHistory((prev) => [...prev, { role: 'assistant', content: `Error: ${message}` }])
     } finally {
       setSendingChat(false)
@@ -305,8 +333,20 @@ export default function QuickModePage({ initialUrl = "" }: QuickModePageProps) {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100">
+      <DashboardHeader user={user} stats={stats} />
+      
+      {/* Token Limit Modal */}
+      <TokenLimitModal
+        isOpen={showTokenLimitModal}
+        onClose={() => setShowTokenLimitModal(false)}
+        onUpgrade={() => router.push('/pricing')}
+        resetAt={tokenLimitData?.resetAt}
+        used={tokenLimitData?.used}
+        limit={tokenLimitData?.limit}
+      />
+      
       {/* Theme toggle button */}
-      <div className="flex justify-end p-4">
+      {/* <div className="flex justify-end p-4">
         <Button
           variant="outline"
           size="icon"
@@ -316,7 +356,7 @@ export default function QuickModePage({ initialUrl = "" }: QuickModePageProps) {
         >
           {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
         </Button>
-      </div>
+      </div> */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-0 top-0 h-72 w-72 rounded-full bg-indigo-700/20 blur-3xl" />
         <div className="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-violet-700/20 blur-3xl" />
@@ -410,6 +450,11 @@ export default function QuickModePage({ initialUrl = "" }: QuickModePageProps) {
                   </TabsList>
 
                   <TabsContent value="assistant" className="rounded-xl border border-slate-700 bg-slate-950/80 p-3">
+                    {/* Token Usage Indicator */}
+                    <div className="mb-3">
+                      <TokenUsageIndicator compact={true} showUpgradePrompt={false} />
+                    </div>
+                    
                     <div className="flex flex-col h-80 max-h-96">
                       <div className="flex-1 overflow-y-auto space-y-2 mb-2 pr-1">
                         {chatHistory.length === 0 ? (

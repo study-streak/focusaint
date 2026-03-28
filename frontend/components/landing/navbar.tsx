@@ -51,10 +51,10 @@ export default function Navbar({ onNavClick }: NavbarProps) {
 
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-8">
-          {["features", "story", "timeline", "team", "contact"].map((item) => (
+          {["features", "pricing", "story", "timeline", "team", "contact"].map((item) => (
             <motion.button
               key={item}
-              onClick={() => handleNavClick(item)}
+              onClick={() => item === "pricing" ? router.push("/pricing") : handleNavClick(item)}
               className="text-gray-200 hover:text-blue-300 transition-colors text-sm font-medium capitalize"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -105,10 +105,10 @@ export default function Navbar({ onNavClick }: NavbarProps) {
           animate={{ opacity: 1, y: 0 }}
         >
           <div className="flex flex-col gap-3">
-            {["features", "story", "timeline", "team", "contact"].map((item) => (
+            {["features", "pricing", "story", "timeline", "team", "contact"].map((item) => (
               <button
                 key={item}
-                onClick={() => handleNavClick(item)}
+                onClick={() => item === "pricing" ? router.push("/pricing") : handleNavClick(item)}
                 className="text-left text-gray-200 hover:text-blue-300 py-2 capitalize"
               >
                 {item}

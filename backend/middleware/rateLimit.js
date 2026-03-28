@@ -1,13 +1,160 @@
-// Rate limiting middleware for Express
+// Comprehensive rate limiting middleware with Redis store
 import rateLimit from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
+import { createClient } from 'redis';
 
-// General API rate limiter (customize as needed)
-export const apiLimiter = rateLimit({
+// Redis client configuration
+let redisClient = null;
+let redisStore = null;
+
+// Initialize Redis client
+async function initializeRedis() {
+  try {
+    redisClient = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+      socket: {
+        reconnectStrategy: (retries) => {
+          if (retries > 10) {
+            console.error('Redis connection failed after 10 retries');
+            return new Error('Redis connection failed');
+          }
+          return retries * 100; // Exponential backoff
+        }
+      }
+    });
+
+    redisClient.on('error', (err) => {
+      console.error('Redis Client Error:', err);
+    });
+
+    redisClient.on('connect', () => {
+      console.log('Redis connected successfully');
+    });
+
+    await redisClient.connect();
+
+    // Create Redis store for rate limiting
+    redisStore = new RedisStore({
+      sendCommand: (...args) => redisClient.sendCommand(args),
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Failed to initialize Redis:', error);
+    console.warn('Rate limiting will use memory store as fallback');
+    return false;
+  }
+}
+
+// Initialize Redis on module load
+initializeRedis();
+
+// Helper function to create rate limiter with consistent configuration
+function createRateLimiter(options) {
+  const defaultOptions = {
+    standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
+    legacyHeaders: false, // Disable `X-RateLimit-*` headers
+    store: redisStore, // Use Redis store if available
+    skipSuccessfulRequests: false,
+    skipFailedRequests: false,
+    handler: (req, res) => {
+      const retryAfter = Math.ceil(options.windowMs / 1000);
+      res.status(429).json({
+        error: {
+          code: 'RATE_LIMIT_EXCEEDED',
+          message: options.message || 'Too many requests, please try again later.',
+          details: {
+            limit: options.max,
+            windowMs: options.windowMs,
+            retryAfter: retryAfter
+          },
+          timestamp: new Date().toISOString(),
+          requestId: req.id || 'unknown'
+        }
+      });
+    }
+  };
+
+  return rateLimit({ ...defaultOptions, ...options });
+}
+
+// Authentication endpoints - strict limits
+export const authLoginLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  message: {
-    error: 'Too many requests, please try again later.'
+  max: 5, // 5 attempts per 15 minutes
+  message: 'Too many login attempts. Please try again in 15 minutes.'
+  // Remove custom keyGenerator to use default (which handles IPv6 correctly)
+});
+
+export const authSignupLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // 3 signups per hour per IP
+  message: 'Too many signup attempts. Please try again in 1 hour.'
+});
+
+export const authPasswordResetLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // 3 password reset requests per hour
+  message: 'Too many password reset requests. Please try again in 1 hour.'
+});
+
+export const authOTPLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 OTP requests per 15 minutes
+  message: 'Too many OTP requests. Please try again in 15 minutes.'
+});
+
+// AI endpoints - token-aware limits
+export const aiChatLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20, // 20 AI requests per hour
+  message: 'AI request limit exceeded. Please try again later.',
+  keyGenerator: (req) => {
+    // Use user ID if authenticated, otherwise use default IP handling
+    return req.user?.id;
   }
 });
+
+// Session endpoints - per-user limits
+export const sessionCreateLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // 10 session creations per minute
+  message: 'Too many session creation requests. Please slow down.',
+  keyGenerator: (req) => {
+    return req.user?.id;
+  }
+});
+
+// File upload endpoints - strict limits
+export const fileUploadLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 uploads per 15 minutes
+  message: 'Too many file uploads. Please try again later.',
+  keyGenerator: (req) => {
+    return req.user?.id;
+  }
+});
+
+// General API endpoints - moderate limits
+export const apiLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // 100 requests per minute
+  message: 'Too many requests. Please try again later.',
+  keyGenerator: (req) => {
+    // Use user ID if authenticated, otherwise use default IP handling
+    return req.user?.id;
+  }
+});
+
+// Strict limiter for sensitive operations
+export const strictLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 requests per hour
+  message: 'Rate limit exceeded for this operation.',
+  keyGenerator: (req) => {
+    return req.user?.id;
+  }
+});
+
+// Export Redis client for cleanup
+export { redisClient };

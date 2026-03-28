@@ -51,10 +51,54 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["free", "premium"],
       default: "free",
+      alias: "tier", // Allow using 'tier' as an alias
+    },
+    stripeCustomerId: {
+      type: String,
+      default: null,
     },
     isEmailVerified: {
       type: Boolean,
       default: false,
+    },
+    dailySessionCount: {
+      type: Number,
+      default: 0,
+    },
+    lastSessionReset: {
+      type: Date,
+      default: Date.now,
+    },
+    dailyLLMTokens: {
+      type: Number,
+      default: 0,
+    },
+    lastTokenReset: {
+      type: Date,
+      default: Date.now,
+    },
+    focusScore: {
+      type: Number,
+      default: 0,
+    },
+    focusScoreHistory: [{
+      score: Number,
+      date: Date
+    }],
+    notificationPreferences: {
+      browserPermission: {
+        type: String,
+        enum: ['granted', 'denied', 'default', 'unsupported'],
+        default: 'default',
+      },
+      enabled: {
+        type: Boolean,
+        default: false,
+      },
+      lastPromptedAt: {
+        type: Date,
+        default: null,
+      },
     },
     createdAt: {
       type: Date,
@@ -78,5 +122,12 @@ userSchema.pre("save", async function () {
 userSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password)
 }
+
+// Indexes for performance optimization
+userSchema.index({ email: 1 }, { unique: true })
+userSchema.index({ subscriptionTier: 1 })
+userSchema.index({ currentStreak: -1 })
+userSchema.index({ lastSessionDate: -1 })
+userSchema.index({ focusScore: -1 })
 
 export default mongoose.model("User", userSchema)

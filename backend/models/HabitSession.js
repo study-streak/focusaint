@@ -46,4 +46,10 @@ const habitSessionSchema = new mongoose.Schema(
 
 habitSessionSchema.index({ userId: 1, sessionDate: 1 })
 
+// Additional indexes for performance optimization
+habitSessionSchema.index({ userId: 1, sessionDate: -1 })
+habitSessionSchema.index({ userId: 1, status: 1 })
+habitSessionSchema.index({ startTime: -1 })
+habitSessionSchema.index({ userId: 1, createdAt: -1 })
+
 export default mongoose.model("HabitSession", habitSessionSchema)

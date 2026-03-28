@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken"
+import { setUserContext } from "../config/sentry.js"
 
-export const authenticateToken = (req, res, next) => {
+export  const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"]
   const token = authHeader && authHeader.split(" ")[1]
 
@@ -14,6 +15,14 @@ export const authenticateToken = (req, res, next) => {
       return res.status(403).json({ error: "Invalid or expired token" })
     }
     req.user = user
+    
+    // Set user context for Sentry error tracking
+    setUserContext({
+      _id: user.userId,
+      email: user.email,
+      name: user.name
+    })
+    
     next()
   })
 }
