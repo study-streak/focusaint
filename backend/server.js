@@ -132,7 +132,7 @@ app.get("/api/csrf-token", getCsrfToken)
 // Webhook endpoint (must be before body parsing middleware for raw body)
 // Note: This is handled in subscription.js with express.raw()
 app.use("/api/subscription/webhook", subscriptionRoutes)
-
+app
 // Apply CSRF protection to all state-changing API routes
 app.use("/api", csrfProtection)
 

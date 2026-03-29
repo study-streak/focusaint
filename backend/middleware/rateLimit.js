@@ -11,16 +11,13 @@ let redisStore = null;
 async function initializeRedis() {
   try {
     redisClient = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379',
-      socket: {
-        reconnectStrategy: (retries) => {
-          if (retries > 10) {
-            console.error('Redis connection failed after 10 retries');
-            return new Error('Redis connection failed');
-          }
-          return retries * 100; // Exponential backoff
-        }
-      }
+    username: process.env.REDIS_USERNAME ||'default',
+    password: process.env.REDIS_PASSWORD,
+    socket: {
+        host: process.env.REDIS_URL || 'redis://localhost',
+        port: 6379
+    }
+      
     });
 
     redisClient.on('error', (err) => {

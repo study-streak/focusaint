@@ -2,11 +2,16 @@ import Reminder from '../models/Reminder.js';
 import logger from '../utils/logger.js';
 import { ValidationError } from '../utils/errors.js';
 
+function getAuthenticatedUserId(req) {
+  return req.user?.userId || req.user?.id;
+}
+
 /**
  * Create a new reminder
  */
 export async function createReminder(req, res, next) {
   try {
+    const userId = getAuthenticatedUserId(req);
     const {
       title,
       message,
@@ -18,7 +23,7 @@ export async function createReminder(req, res, next) {
     } = req.body;
 
     const reminder = new Reminder({
-      userId: req.user.id,
+      userId,
       title,
       message,
       scheduledTime: new Date(scheduledTime),
@@ -31,7 +36,7 @@ export async function createReminder(req, res, next) {
     await reminder.save();
 
     logger.info('Reminder created', {
-      userId: req.user.id,
+      userId,
       reminderId: reminder._id,
       scheduledTime: reminder.scheduledTime,
     });
@@ -50,8 +55,9 @@ export async function createReminder(req, res, next) {
  */
 export async function getReminders(req, res, next) {
   try {
+    const userId = getAuthenticatedUserId(req);
     const { status, upcoming } = req.query;
-    const filter = { userId: req.user.id };
+    const filter = { userId };
 
     if (status) {
       filter.status = status;
@@ -82,7 +88,7 @@ export async function getReminders(req, res, next) {
 export async function getDueReminders(req, res, next) {
   try {
     const now = new Date();
-    const userId = req.user.id;
+    const userId = getAuthenticatedUserId(req);
 
     // Find active reminders that are due
     const activeReminders = await Reminder.find({
@@ -128,7 +134,7 @@ export async function getUpcomingReminders(req, res, next) {
   try {
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const userId = req.user.id;
+    const userId = getAuthenticatedUserId(req);
 
     const upcomingReminders = await Reminder.find({
       userId,
@@ -162,9 +168,10 @@ export async function getUpcomingReminders(req, res, next) {
  */
 export async function getReminder(req, res, next) {
   try {
+    const userId = getAuthenticatedUserId(req);
     const reminder = await Reminder.findOne({
       _id: req.params.id,
-      userId: req.user.id,
+      userId,
     });
 
     if (!reminder) {
@@ -185,9 +192,10 @@ export async function getReminder(req, res, next) {
  */
 export async function updateReminder(req, res, next) {
   try {
+    const userId = getAuthenticatedUserId(req);
     const reminder = await Reminder.findOne({
       _id: req.params.id,
-      userId: req.user.id,
+      userId,
     });
 
     if (!reminder) {
@@ -219,7 +227,7 @@ export async function updateReminder(req, res, next) {
     await reminder.save();
 
     logger.info('Reminder updated', {
-      userId: req.user.id,
+      userId,
       reminderId: reminder._id,
     });
 
@@ -237,9 +245,10 @@ export async function updateReminder(req, res, next) {
  */
 export async function deleteReminder(req, res, next) {
   try {
+    const userId = getAuthenticatedUserId(req);
     const reminder = await Reminder.findOneAndDelete({
       _id: req.params.id,
-      userId: req.user.id,
+      userId,
     });
 
     if (!reminder) {
@@ -247,7 +256,7 @@ export async function deleteReminder(req, res, next) {
     }
 
     logger.info('Reminder deleted', {
-      userId: req.user.id,
+      userId,
       reminderId: reminder._id,
     });
 
@@ -265,9 +274,10 @@ export async function deleteReminder(req, res, next) {
  */
 export async function snoozeReminder(req, res, next) {
   try {
+    const userId = getAuthenticatedUserId(req);
     const reminder = await Reminder.findOne({
       _id: req.params.id,
-      userId: req.user.id,
+      userId,
     });
 
     if (!reminder) {
@@ -277,7 +287,7 @@ export async function snoozeReminder(req, res, next) {
     await reminder.snooze(req.body.duration);
 
     logger.info('Reminder snoozed', {
-      userId: req.user.id,
+      userId,
       reminderId: reminder._id,
       duration: req.body.duration,
       snoozeUntil: reminder.snoozeUntil,
@@ -298,9 +308,10 @@ export async function snoozeReminder(req, res, next) {
  */
 export async function dismissReminder(req, res, next) {
   try {
+    const userId = getAuthenticatedUserId(req);
     const reminder = await Reminder.findOne({
       _id: req.params.id,
-      userId: req.user.id,
+      userId,
     });
 
     if (!reminder) {
@@ -310,7 +321,7 @@ export async function dismissReminder(req, res, next) {
     await reminder.dismiss();
 
     logger.info('Reminder dismissed', {
-      userId: req.user.id,
+      userId,
       reminderId: reminder._id,
       wasRecurring: reminder.recurrence !== 'none',
       nextScheduledTime: reminder.status === 'active' ? reminder.scheduledTime : null,
@@ -333,6 +344,7 @@ export async function dismissReminder(req, res, next) {
  */
 export async function markRemindersAsNotified(req, res, next) {
   try {
+    const userId = getAuthenticatedUserId(req);
     const { reminderIds } = req.body;
 
     if (!Array.isArray(reminderIds) || reminderIds.length === 0) {
@@ -346,7 +358,7 @@ export async function markRemindersAsNotified(req, res, next) {
     const updatePromises = reminderIds.map(async (reminderId) => {
       const reminder = await Reminder.findOne({
         _id: reminderId,
-        userId: req.user.id,
+        userId,
       });
 
       if (reminder) {
@@ -357,7 +369,7 @@ export async function markRemindersAsNotified(req, res, next) {
     await Promise.all(updatePromises);
 
     logger.info('Reminders marked as notified', {
-      userId: req.user.id,
+      userId,
       count: reminderIds.length,
     });
 
