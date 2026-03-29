@@ -72,7 +72,7 @@ const development = {
   // Feature flags
   features: {
     aiEnabled: Boolean(process.env.GEMINI_API_KEY),
-    paymentsEnabled: Boolean(process.env.STRIPE_SECRET_KEY),
+    paymentsEnabled: Boolean(process.env.DODO_PAYMENTS_API_KEY),
     sentryEnabled: Boolean(process.env.SENTRY_DSN),
     cacheEnabled: true
   },
@@ -91,10 +91,9 @@ const development = {
       model: 'gemini-pro',
       maxTokens: 1000
     },
-    stripe: {
-      secretKey: process.env.STRIPE_SECRET_KEY,
-      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-      testMode: true
+    dodoPayments: {
+      apiKey: process.env.DODO_PAYMENTS_API_KEY,
+      environment: process.env.DODO_PAYMENTS_ENV || 'test_mode'
     },
     sentry: {
       dsn: process.env.SENTRY_DSN,
@@ -173,7 +172,7 @@ const staging = {
   // Feature flags
   features: {
     aiEnabled: Boolean(process.env.GEMINI_API_KEY),
-    paymentsEnabled: Boolean(process.env.STRIPE_SECRET_KEY),
+    paymentsEnabled: Boolean(process.env.DODO_PAYMENTS_API_KEY),
     sentryEnabled: Boolean(process.env.SENTRY_DSN),
     cacheEnabled: true
   },
@@ -192,10 +191,9 @@ const staging = {
       model: 'gemini-pro',
       maxTokens: 1000
     },
-    stripe: {
-      secretKey: process.env.STRIPE_SECRET_KEY,
-      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-      testMode: true // Still using test mode in staging
+    dodoPayments: {
+      apiKey: process.env.DODO_PAYMENTS_API_KEY,
+      environment: process.env.DODO_PAYMENTS_ENV || 'test_mode'
     },
     sentry: {
       dsn: process.env.SENTRY_DSN,
@@ -276,7 +274,7 @@ const production = {
   // Feature flags
   features: {
     aiEnabled: Boolean(process.env.GEMINI_API_KEY),
-    paymentsEnabled: Boolean(process.env.STRIPE_SECRET_KEY),
+    paymentsEnabled: Boolean(process.env.DODO_PAYMENTS_API_KEY),
     sentryEnabled: Boolean(process.env.SENTRY_DSN),
     cacheEnabled: true
   },
@@ -295,10 +293,9 @@ const production = {
       model: 'gemini-pro',
       maxTokens: 1000
     },
-    stripe: {
-      secretKey: process.env.STRIPE_SECRET_KEY,
-      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-      testMode: false // Live mode in production
+    dodoPayments: {
+      apiKey: process.env.DODO_PAYMENTS_API_KEY,
+      environment: process.env.DODO_PAYMENTS_ENV || 'live_mode'
     },
     sentry: {
       dsn: process.env.SENTRY_DSN,
@@ -392,10 +389,9 @@ const test = {
       model: 'gemini-pro',
       maxTokens: 100
     },
-    stripe: {
-      secretKey: null,
-      webhookSecret: null,
-      testMode: true
+    dodoPayments: {
+      apiKey: null,
+      environment: 'test_mode'
     },
     sentry: {
       dsn: null,

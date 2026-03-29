@@ -1,43 +1,18 @@
-# Stripe Setup Guide
+# Payment Integration Guide
 
-This guide walks you through setting up Stripe for payment processing in focusaint.
+## Stripe Removed
+Stripe is no longer used for payment processing in this project. All Stripe dependencies and code have been removed.
 
-## Prerequisites
+## Dodo Payments (Optional)
+The project now supports Dodo Payments as an optional payment provider. If you wish to enable paid subscriptions, integrate Dodo Payments according to their API/SDK documentation.
 
-- A Stripe account (sign up at https://stripe.com)
-- Access to the Stripe Dashboard
+### To enable payments:
+- Add your Dodo Payments integration code in the subscription controller and model.
+- Set the `dodoPaymentId` field when creating a paid subscription.
+- For free usage, users can create a subscription with the `free` plan and no payment required.
 
-## Step 1: Create a Stripe Account
-
-1. Go to https://stripe.com and click "Sign up"
-2. Complete the registration process
-3. Verify your email address
-
-## Step 2: Get API Keys
-
-### Test Mode Keys (for Development)
-
-1. Log in to the Stripe Dashboard
-2. Make sure you're in **Test mode** (toggle in the top right)
-3. Navigate to **Developers** → **API keys**
-4. Copy the following keys:
-   - **Publishable key** (starts with `pk_test_`)
-   - **Secret key** (starts with `sk_test_`)
-
-### Add Keys to Environment
-
-Add these keys to your `backend/.env` file:
-
-```env
-STRIPE_SECRET_KEY=sk_test_your_actual_secret_key_here
-STRIPE_PUBLISHABLE_KEY=pk_test_your_actual_publishable_key_here
-```
-
-## Step 3: Create Subscription Products
-
-### Create Premium Monthly Plan
-
-1. In Stripe Dashboard, go to **Products** → **Add product**
+## Environment Variables
+No payment provider environment variables are required by default. Add Dodo Payments keys if needed for your integration.
 2. Fill in the details:
    - **Name**: Focusaint Premium Monthly
    - **Description**: Monthly subscription to Focusaint Premium features

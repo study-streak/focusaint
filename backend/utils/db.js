@@ -9,8 +9,8 @@ if (!cached) {
 
 // Connection pool configuration
 const CONNECTION_OPTIONS = {
-  maxPoolSize: 10, // Maximum number of connections in the pool
-  minPoolSize: 2, // Minimum number of connections to maintain
+  maxPoolSize: 2, // Maximum number of connections in the pool
+  minPoolSize: 1, // Minimum number of connections to maintain
   maxIdleTimeMS: 30000, // Close connections after 30s of inactivity
   serverSelectionTimeoutMS: 5000, // Timeout for server selection
   socketTimeoutMS: 45000, // Socket timeout

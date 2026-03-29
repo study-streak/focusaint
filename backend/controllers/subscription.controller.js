@@ -1,5 +1,8 @@
 // Dodo Payments Webhook Handler
 // Add this endpoint to your routes: router.post('/webhook/dodo', express.json(), handleDodoWebhook)
+import User from '../models/User.js';
+import Subscription from '../models/Subscription.js';
+
 export const handleDodoWebhook = async (req, res) => {
   try {
     const event = req.body;
@@ -48,9 +51,6 @@ export const handleDodoWebhook = async (req, res) => {
     res.status(500).json({ error: 'Webhook handler error' });
   }
 };
-import User from '../models/User.js';
-import Subscription from '../models/Subscription.js';
-import fetch from 'node-fetch';
 
 
 // Create a subscription (Dodo Payments or free)

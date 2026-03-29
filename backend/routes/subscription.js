@@ -1,4 +1,5 @@
 import express from 'express';
+
 import { authenticateToken } from '../middleware/auth.js';
 import {
   createSubscription,
@@ -9,10 +10,10 @@ import {
   handleDodoWebhook
 } from '../controllers/subscription.controller.js';
 
+const router = express.Router();
 // Dodo Payments webhook endpoint
 router.post('/webhook/dodo', express.json(), handleDodoWebhook);
 
-const router = express.Router();
 
 /**
  * @route   POST /api/subscription/create

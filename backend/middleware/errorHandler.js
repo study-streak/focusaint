@@ -33,6 +33,9 @@ export const errorHandler = (err, req, res, next) => {
   // Ensure request has an ID
   const requestId = req.id || generateRequestId()
   
+  // Initialize status code early so it is safe to use in all branches
+  let statusCode = err.statusCode || 500
+  
   // Determine if this is an operational error or programming error
   const isOperational = err.isOperational || err instanceof AppError
   
@@ -76,7 +79,6 @@ export const errorHandler = (err, req, res, next) => {
   }
 
   // Build error response
-  let statusCode = err.statusCode || 500
   let errorResponse
 
   // Handle custom AppError instances
