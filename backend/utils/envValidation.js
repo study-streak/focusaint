@@ -37,8 +37,8 @@ const ENV_SCHEMA = {
   REDIS_URL: {
     required: true,
     type: 'string',
-    pattern: /^redis:\/\/.+/,
-    description: 'Redis connection URL for caching and rate limiting'
+    pattern: /^redis(s)?:\/\/(?:.*@)?[a-zA-Z0-9\-\.]+:[0-9]+/,
+    description: 'Redis connection URL for caching and rate limiting (e.g., redis://localhost:6379 or redis://:password@host:port)'
   },
 
   // Security Configuration
