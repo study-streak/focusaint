@@ -2,7 +2,8 @@
 import rateLimit from 'express-rate-limit';
 import RedisStore from 'rate-limit-redis';
 import { createClient } from 'redis';
-
+import dotenv from 'dotenv'
+dotenv.config();
 // Redis client configuration
 let redisClient = null;
 let redisStore = null;
@@ -11,11 +12,11 @@ let redisStore = null;
 async function initializeRedis() {
   try {
     redisClient = createClient({
-    username: process.env.REDIS_USERNAME ||'default',
-    password: process.env.REDIS_PASSWORD,
+    username: process.env.REDIS_USERNAME ||'',
+    password: process.env.REDIS_PASSWORD || '',
+    url:process.env.REDIS_URL,
     socket: {
-        host: process.env.REDIS_URL || 'redis://localhost:6379',
-        port: process.env.REDIS_PORT || 6379
+        
     },
 
       
