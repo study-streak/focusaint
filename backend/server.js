@@ -44,7 +44,7 @@ import { metricsMiddleware } from "./services/metrics.js"
 import reminderScheduler from "./services/reminderScheduler.js"
 
 // Load environment variables
-dotenv.config()
+dotenv.config("./.env")
 
 // Validate environment variables before starting the application
 validateEnvOrExit()
@@ -132,6 +132,8 @@ async function startServer() {
 }
 
 // Routes
+
+app.get('/',()=>console.log("SERVER IS RUNNING......."))
 // CSRF token endpoint (GET request, no CSRF validation needed)
 app.get("/api/csrf-token", getCsrfToken)
 

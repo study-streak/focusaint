@@ -10,6 +10,7 @@ let redisStore = null;
 
 // Initialize Redis client
 async function initializeRedis() {
+  // console.log(process.env.REDIS_URL)
   try {
     redisClient = createClient({
     username: process.env.REDIS_USERNAME ||'',
