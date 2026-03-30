@@ -106,24 +106,30 @@ app.use(csrfTokenGenerator)
 app.use(isVercel ? "/tmp/uploads" : "/uploads", express.static(uploadsDir))
 
 
-// MongoDB Connection with retry logic and connection pooling
-connectToMongo().catch((err) => {
-  logger.error("MongoDB connection error", { error: err.message, stack: err.stack })
-  process.exit(1) // Exit if initial connection fails
-})
+async function startServer() {
+  // MongoDB Connection with retry logic and connection pooling
+  await connectToMongo()
 
-// Initialize cron jobs (daily session reset, etc.)
-if (!isVercel) {
-  // Only run cron jobs in non-serverless environments
-  initializeCronJobs()
-  
-  // Start reminder scheduler
-  reminderScheduler.start()
-  logger.info("Reminder scheduler initialized")
+  // Initialize cron jobs (daily session reset, etc.)
+  if (!isVercel) {
+    // Only run cron jobs in non-serverless environments
+    initializeCronJobs()
+
+    // Start reminder scheduler
+    reminderScheduler.start()
+    logger.info("Reminder scheduler initialized")
+  }
+
+  // Set up graceful shutdown handlers
+  setupGracefulShutdown()
+
+  const PORT = process.env.PORT || 5000
+  if (!isVercel) {
+    app.listen(PORT, () => {
+      logger.info(`focusaint server running on http://localhost:${PORT}`, { port: PORT })
+    })
+  }
 }
-
-// Set up graceful shutdown handlers
-setupGracefulShutdown()
 
 // Routes
 // CSRF token endpoint (GET request, no CSRF validation needed)
@@ -167,11 +173,11 @@ app.use(sentryErrorHandler())
 // Global error handler (must be last)
 app.use(errorHandler)
 
-const PORT = process.env.PORT || 5000
-if (!isVercel) {
-  app.listen(PORT, () => {
-    logger.info(`focusaint server running on http://localhost:${PORT}`, { port: PORT })
-  })
-}
+startServer().catch((err) => {
+  logger.error("Server startup failed", { error: err.message, stack: err.stack })
+  if (!isVercel) {
+    process.exit(1)
+  }
+})
 
 export default app
