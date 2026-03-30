@@ -57,7 +57,7 @@ const isVercel = Boolean(process.env.VERCEL)
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const uploadsDir = isVercel ? path.join("/tmp", "uploads") : path.join(__dirname, "uploads")
-
+app.set('trust proxy', 1);
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true })
 }
