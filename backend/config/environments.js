@@ -217,7 +217,7 @@ const production = {
   },
 
   // Database settings
-  database: {
+  database: { 
     uri: process.env.MONGODB_URI,
     options: {
       maxPoolSize: 20,

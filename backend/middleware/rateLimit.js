@@ -14,9 +14,10 @@ async function initializeRedis() {
     username: process.env.REDIS_USERNAME ||'default',
     password: process.env.REDIS_PASSWORD,
     socket: {
-        host: process.env.REDIS_URL || 'redis://localhost',
+        host: process.env.REDIS_URL || 'redis://localhost:6379',
         port: process.env.REDIS_PORT || 6379
-    }
+    },
+
       
     });
 
