@@ -133,7 +133,7 @@ async function startServer() {
 
 // Routes
 
-app.get('/',()=>console.log("SERVER IS RUNNING......."))
+app.get('/',(req)=>{ return req.status(200).json({message:"server is running fine"})})
 // CSRF token endpoint (GET request, no CSRF validation needed)
 app.get("/api/csrf-token", getCsrfToken)
 
