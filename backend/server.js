@@ -108,7 +108,7 @@ app.use(isVercel ? "/tmp/uploads" : "/uploads", express.static(uploadsDir))
 
 async function startServer() {
   // MongoDB Connection with retry logic and connection pooling
-  await connectToMongo()
+  await connectToMongo().error((e)=>console.log(`mongoose connection error:${e}`))
 
   // Initialize cron jobs (daily session reset, etc.)
   if (!isVercel) {
