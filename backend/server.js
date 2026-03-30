@@ -107,7 +107,7 @@ app.use(isVercel ? "/tmp/uploads" : "/uploads", express.static(uploadsDir))
 
 
 // MongoDB Connection with retry logic and connection pooling
-connectToMongo().catch((err) => {
+await connectToMongo().catch((err) => {
   logger.error("MongoDB connection error", { error: err.message, stack: err.stack })
   process.exit(1) // Exit if initial connection fails
 })
