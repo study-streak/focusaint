@@ -4,7 +4,7 @@ import logger, { logDatabaseQuery } from "./logger.js"
 let cached = global.mongoose
 
 if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null }
+cached = global.mongoose = { conn: null, promise: null }
 }
 
 // Connection pool configuration
@@ -30,19 +30,17 @@ let isShuttingDown = false
  */
 export async function connectToMongo() {
   if (cached.conn) return cached.conn
-
+  
   if (!cached.promise) {
-    mongoose.set("bufferCommands", false)
-
-    cached.promise = connectWithRetry()
+    cached.promise = mongoose.connect(process.env.MONGODB_URI, {
+      bufferCommands: false,
+      maxPoolSize: 10, // allow concurrency
+    })
   }
 
   cached.conn = await cached.promise
   return cached.conn
-
-
 }
-
 /**
  * Connect to MongoDB with automatic retry on failure
  * @param {number} retryCount - Current retry attempt
